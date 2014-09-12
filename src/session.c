@@ -24,9 +24,59 @@ THE SOFTWARE.
 
 */
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/socket.h>
 
-void session(const struct sockaddr* address)
-{
+#include "./util.h"
 
+void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t heartbeat_interval)
+{
+	char str_address[PRINTFADDRESS_LEN] = {0};
+
+	/* First we must initialise, draft section 7.2 */
+	int s = socket(modem_address->sa_family,SOCK_STREAM,0);
+	if (s == -1)
+	{
+		printf("Failed to create socket: %s\n",strerror(errno));
+		return;
+	}
+
+	printf("Connecting to modem at %s\n",printfAddress(modem_address,str_address,sizeof(str_address)));
+
+	/* Connect to the modem */
+	if (connect(s,modem_address,modem_address_length) == -1)
+	{
+		printf("Failed to connect socket: %s\n",strerror(errno));
+	}
+	else
+	{
+		char msg[1500];
+		ssize_t received;
+
+		printf("Waiting for Peer Initialization signal from modem...\n");
+
+		/* Receive a Peer Initialization signal */
+		received = recv(s,msg,sizeof(msg),0);
+		if (received == -1)
+			printf("Failed to receive from TCP socket: %s\n",strerror(errno));
+		else if (received == -1)
+			printf("Modem disconnected TCP session\n");
+		else
+		{
+			printf("Received possible Peer Initialization signal (%u bytes) from modem...\n",(unsigned int)received);
+
+			/* Check it's a valid Peer Initialization signal */
+			if (check_peer_init_signal(msg,received))
+			{
+
+
+			}
+		}
+	}
+
+	close(s);
 }

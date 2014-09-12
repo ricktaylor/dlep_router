@@ -7,7 +7,8 @@ dlep_router_SOURCES = \
 	src/main.c \
 	src/discovery.c \
 	src/check.c \
-	src/session.c
+	src/session.c \
+	src/util.c
 	
 #dlep_router_LDADD = 
 dlep_router_LDFLAGS = -pthread

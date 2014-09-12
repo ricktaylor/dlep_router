@@ -24,16 +24,16 @@ THE SOFTWARE.
 
 */
 
-#ifndef DLEP_TLV_CHECK_H_
-#define DLEP_TLV_CHECK_H_
+#ifndef DLEP_UTIL_H_
+#define DLEP_UTIL_H_
 
-int check_port(const char* tlv);
-int check_peer_type(const char* tlv);
-int check_heartbeat_interval(const char* tlv);
-int check_ipv4_address(const char* tlv);
-int check_ipv6_address(const char* tlv);
-int check_status(const char* tlv);
+#include <stdint.h>
+#include <arpa/inet.h>
 
-int check_peer_offer_signal(const char* msg, size_t len);
+uint16_t get_uint16(const char* p);
+void set_uint16(uint16_t v, char* p);
 
-#endif /* DLEP_TLV_CHECK_H_ */
+#define PRINTFADDRESS_LEN INET6_ADDRSTRLEN+6
+const char* printfAddress(const struct sockaddr* addr, char* str, size_t str_len);
+
+#endif /* DLEP_UTIL_H_ */

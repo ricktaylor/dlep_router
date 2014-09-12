@@ -50,6 +50,7 @@ values will survive the standardisation process.
 #define DLEP_IPV4_ADDRESS_TLV       2
 #define DLEP_IPV6_ADDRESS_TLV       3
 #define DLEP_PEER_TYPE_TLV          4
+#define DLEP_STATUS_TLV             5
 
 
 /* Other, non-IANA, dlep_router default values */

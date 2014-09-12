@@ -33,9 +33,11 @@ THE SOFTWARE.
 
 #include "./dlep_iana.h"
 #include "./check.h"
+#include "./util.h"
 
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {
+	char str_address[PRINTFADDRESS_LEN] = {0};
 	char msg[3];
 	uint16_t msg_len = 3;
 
@@ -45,9 +47,11 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	set_uint16(msg_len,msg+1);
 
+	printf("Sending Peer Discovery signal to %s\n",printfAddress(address,str_address,sizeof(str_address)));
+
 	if (sendto(s,msg,msg_len,0,address,address_len) != msg_len)
 	{
-		printf("Failed to send peer discovery signal: %s\n",strerror(errno));
+		printf("Failed to send Peer Discovery signal: %s\n",strerror(errno));
 		return -1;
 	}
 
@@ -59,9 +63,14 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 	struct timeval timeout = {0};
 	fd_set readfds;
 	ssize_t received;
+	struct sockaddr_storage recv_address = {0};
+	socklen_t recv_address_len = sizeof(recv_address);
+	char str_address[PRINTFADDRESS_LEN] = {0};
 
 	FD_ZERO(&readfds);
 	FD_SET(s,&readfds);
+
+	printf("Waiting for Peer Offer signal\n");
 
 	/* Use select() to wait for secs seconds */
 	timeout.tv_sec = secs;
@@ -74,26 +83,28 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 		return 0;
 
 	/* Receive the signal */
-	received = recv(s,msg,sizeof(msg),MSG_DONTWAIT);
+	received = recvfrom(s,msg,sizeof(msg),MSG_DONTWAIT,(struct sockaddr*)&recv_address,&recv_address_len);
 	if (received == -1)
 	{
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return 0;
 
-		printf("Failed to receive from multicast socket: %s\n",strerror(errno));
+		printf("Failed to receive from UDP socket: %s\n",strerror(errno));
 		return -1;
 	}
+
+	printf("Received possible Peer Offer signal (%u bytes) from %s\n",(unsigned int)received,printfAddress((struct sockaddr*)&recv_address,str_address,sizeof(str_address)));
 
 	return received;
 }
 
-static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t dest_addr_len, struct sockaddr_storage* modem_address, uint16_t* heartbeat_interval)
+static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t dest_addr_len, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
 	char msg[1500];
 	ssize_t len = 0;
 	const char* tlv;
 	char peer_type[257] = {0};
-	char peer_address[INET6_ADDRSTRLEN] = {0};
+	char peer_address[PRINTFADDRESS_LEN] = {0};
 	uint16_t port;
 
 	/* Loop until we have a Peer Offer signal or an error */
@@ -137,7 +148,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			{
 				modem_address->ss_family = AF_INET;
 				memcpy(&((struct sockaddr_in*)&modem_address)->sin_addr,tlv+3,4);
-				inet_ntop(AF_INET,tlv+3,peer_address,sizeof(peer_address));
+				*modem_address_length = sizeof(struct sockaddr_in);
 			}
 			break;
 
@@ -146,12 +157,20 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			{
 				modem_address->ss_family = AF_INET6;
 				memcpy(&((struct sockaddr_in6*)&modem_address)->sin6_addr,tlv+3,16);
-				inet_ntop(AF_INET6,tlv+3,peer_address,sizeof(peer_address));
+				*modem_address_length = sizeof(struct sockaddr_in6);
 			}
 			break;
 
 		case DLEP_PEER_TYPE_TLV:
 			strncpy(peer_type,tlv+2,tlv[1]);
+			break;
+
+		case DLEP_STATUS_TLV:
+			if (tlv[2] != 0)
+			{
+				printf("Received Peer Offer signal has status %u, not connecting\n",tlv[2]);
+				return 0;
+			}
 			break;
 
 		default:
@@ -169,17 +188,17 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		return 0;
 	}
 
-	printf("Peer Offer from modem ");
+	printf("Received Peer Offer signal from modem ");
 
 	if (*peer_type)
 		printf("%s ",peer_type);
 
-	printf("at %s:%u\n",peer_address,port);
+	printf("offering connection %s\n",printfAddress((struct sockaddr*)&modem_address,peer_address,sizeof(peer_address)));
 
 	return 1;
 }
 
-static int discover_ipv4(int s, struct sockaddr_storage* modem_address, uint16_t* heartbeat_interval)
+static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
@@ -210,7 +229,7 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, uint16_t
 			inet_pton(AF_INET,DLEP_WELL_KNOWN_MULTICAST_ADDRESS,&discovery_address.sin_addr);
 
 			/* Do the discovery */
-			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,heartbeat_interval))
+			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
 				ret = 1;
 		}
 	}
@@ -218,7 +237,7 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, uint16_t
 	return ret;
 }
 
-int discover_ipv6(int s, struct sockaddr_storage* modem_address, uint16_t* heartbeat_interval)
+int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
@@ -249,7 +268,7 @@ int discover_ipv6(int s, struct sockaddr_storage* modem_address, uint16_t* heart
 			inet_pton(AF_INET6,DLEP_WELL_KNOWN_MULTICAST_ADDRESS_6,&discovery_address.sin6_addr);
 
 			/* Do the discovery */
-			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,heartbeat_interval))
+			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
 				ret = 1;
 		}
 	}
@@ -257,7 +276,7 @@ int discover_ipv6(int s, struct sockaddr_storage* modem_address, uint16_t* heart
 	return ret;
 }
 
-int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ uint16_t* heartbeat_interval)
+int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
@@ -270,9 +289,9 @@ int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem
 	else
 	{
 		if (use_ipv6)
-			ret = discover_ipv6(s,modem_address,heartbeat_interval);
+			ret = discover_ipv6(s,modem_address,modem_address_length,heartbeat_interval);
 		else
-			ret = discover_ipv4(s,modem_address,heartbeat_interval);
+			ret = discover_ipv4(s,modem_address,modem_address_length,heartbeat_interval);
 
 		close(s);
 	}

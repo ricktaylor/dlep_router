@@ -29,19 +29,6 @@ THE SOFTWARE.
 
 #include "./dlep_iana.h"
 
-uint16_t get_uint16(const char* p)
-{
-	/* Avoid ntohs() due to unaligned access issues on some architectures */
-	return (p[0] << 8 | p[1]);
-}
-
-void set_uint16(uint16_t v, char* p)
-{
-	/* Avoid htons() due to unaligned access issues on some architectures */
-	p[0] = v >> 8;
-	p[1] = v & 0xFF;
-}
-
 int check_port(const char* tlv)
 {
 	if (tlv[1] != 2)
@@ -128,6 +115,17 @@ int check_ipv6_address(const char* tlv)
 	return 1;
 }
 
+int check_status(const char* tlv)
+{
+	if (tlv[1] != 1)
+	{
+		printf("Incorrect length in Status TLV: %u, expected 1\n",(unsigned int)tlv[1]);
+		return 0;
+	}
+
+	return 1;
+}
+
 int check_peer_offer_signal(const char* msg, size_t len)
 {
 	int ret = 1;
@@ -136,6 +134,7 @@ int check_peer_offer_signal(const char* msg, size_t len)
 	int seen_ip_address = 0;
 	int seen_port = 0;
 	int seen_peer_type = 0;
+	int seen_status = 0;
 
 	/* Validate the signal */
 	if (len < 3)
@@ -237,6 +236,18 @@ int check_peer_offer_signal(const char* msg, size_t len)
 				ret = 0;
 			else
 				seen_peer_type = 1;
+			break;
+
+		case DLEP_STATUS_TLV:
+			if (seen_status)
+			{
+				printf("Multiple Status TLVs in Peer Offer signal\n");
+				ret = 0;
+			}
+			else if (!check_status(tlv))
+				ret = 0;
+			else
+				seen_status = 1;
 			break;
 
 		default:

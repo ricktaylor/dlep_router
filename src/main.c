@@ -36,10 +36,10 @@ THE SOFTWARE.
 #include "./dlep_iana.h"
 
 /* Defined in discovery.c */
-int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ uint16_t* heartbeat_interval);
+int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval);
 
 /* Defined in session.c */
-int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ uint16_t heartbeat_interval);
+int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t heartbeat_interval);
 
 static void help()
 {
@@ -67,6 +67,7 @@ int main(int argc, char* argv[])
 	int longindex = -1;
 	int use_ipv6 = 0;
 	struct sockaddr_storage address = {0};
+	socklen_t address_length = 0;
 
 	/* Disable getopt's error messages */
 	opterr = 0;
@@ -163,11 +164,11 @@ int main(int argc, char* argv[])
 		{
 			/* If no address was supplied on the command line, perform discovery
 			 * This is section 7.2 in the draft */
-			if (!discover(use_ipv6,&address,&heartbeat_interval))
+			if (!discover(use_ipv6,&address,&address_length,&heartbeat_interval))
 				return EXIT_FAILURE;
 		}
 
-		if (session((const struct sockaddr*)&address,heartbeat_interval) != 0)
+		if (session((const struct sockaddr*)&address,address_length,heartbeat_interval) != 0)
 			return EXIT_FAILURE;
 	}
 
