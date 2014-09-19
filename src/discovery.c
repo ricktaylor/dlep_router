@@ -37,7 +37,7 @@ THE SOFTWARE.
 
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {
-	char str_address[PRINTFADDRESS_LEN] = {0};
+	char str_address[FORMATADDRESS_LEN] = {0};
 	char msg[3];
 	uint16_t msg_len = 3;
 
@@ -47,15 +47,15 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	set_uint16(msg_len,msg+1);
 
-	printf("Sending Peer Discovery signal to %s\n",printfAddress(address,str_address,sizeof(str_address)));
+	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));
 
 	if (sendto(s,msg,msg_len,0,address,address_len) != msg_len)
 	{
 		printf("Failed to send Peer Discovery signal: %s\n",strerror(errno));
-		return -1;
+		return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
@@ -65,7 +65,7 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 	ssize_t received;
 	struct sockaddr_storage recv_address = {0};
 	socklen_t recv_address_len = sizeof(recv_address);
-	char str_address[PRINTFADDRESS_LEN] = {0};
+	char str_address[FORMATADDRESS_LEN] = {0};
 
 	FD_ZERO(&readfds);
 	FD_SET(s,&readfds);
@@ -83,17 +83,14 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 		return 0;
 
 	/* Receive the signal */
-	received = recvfrom(s,msg,sizeof(msg),MSG_DONTWAIT,(struct sockaddr*)&recv_address,&recv_address_len);
+	received = recvfrom(s,msg,sizeof(msg),0,(struct sockaddr*)&recv_address,&recv_address_len);
 	if (received == -1)
 	{
-		if (errno == EWOULDBLOCK || errno == EAGAIN)
-			return 0;
-
 		printf("Failed to receive from UDP socket: %s\n",strerror(errno));
 		return -1;
 	}
 
-	printf("Received possible Peer Offer signal (%u bytes) from %s\n",(unsigned int)received,printfAddress((struct sockaddr*)&recv_address,str_address,sizeof(str_address)));
+	printf("Received possible Peer Offer signal (%u bytes) from %s\n",(unsigned int)received,formatAddress((struct sockaddr*)&recv_address,str_address,sizeof(str_address)));
 
 	return received;
 }
@@ -103,15 +100,14 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	char msg[1500];
 	ssize_t len = 0;
 	const char* tlv;
-	char peer_type[257] = {0};
-	char peer_address[PRINTFADDRESS_LEN] = {0};
+	char peer_address[INET6_ADDRSTRLEN] = {0};
 	uint16_t port;
 
 	/* Loop until we have a Peer Offer signal or an error */
 	while (len == 0)
 	{
 		/* Send the message to the well-known multicast address */
-		if (send_peer_discovery_signal(s,dest_addr,dest_addr_len) != 0)
+		if (!send_peer_discovery_signal(s,dest_addr,dest_addr_len))
 			return 0;
 
 		/* Now wait for a response */
@@ -124,6 +120,8 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			len = 0;
 	}
 
+	printf("Valid Peer Offer signal from modem\n");
+
 	/* The signal has been validated so just scan for the relevant tlvs */
 	modem_address->ss_family = 0;
 	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
@@ -133,6 +131,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		{
 		case DLEP_PORT_TLV:
 			port = get_uint16(tlv+2);
+			printf("  DLEP Port: %u\n",port);
 			if (dest_addr->sa_family == AF_INET)
 				((struct sockaddr_in*)&modem_address)->sin_port = htons(port);
 			else
@@ -141,28 +140,25 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
 			*heartbeat_interval = get_uint16(tlv+2);
+			printf("  Heartbeat Interval: %u\n",*heartbeat_interval);
 			break;
 
 		case DLEP_IPV4_ADDRESS_TLV:
-			if (dest_addr->sa_family == AF_INET)
-			{
-				modem_address->ss_family = AF_INET;
-				memcpy(&((struct sockaddr_in*)&modem_address)->sin_addr,tlv+3,4);
-				*modem_address_length = sizeof(struct sockaddr_in);
-			}
+			modem_address->ss_family = AF_INET;
+			memcpy(&((struct sockaddr_in*)&modem_address)->sin_addr,tlv+3,4);
+			*modem_address_length = sizeof(struct sockaddr_in);
+			printf("  IPv4 address: %s\n",inet_ntop(AF_INET,tlv+3,peer_address,sizeof(peer_address)));
 			break;
 
 		case DLEP_IPV6_ADDRESS_TLV:
-			if (dest_addr->sa_family == AF_INET6)
-			{
-				modem_address->ss_family = AF_INET6;
-				memcpy(&((struct sockaddr_in6*)&modem_address)->sin6_addr,tlv+3,16);
-				*modem_address_length = sizeof(struct sockaddr_in6);
-			}
+			modem_address->ss_family = AF_INET6;
+			memcpy(&((struct sockaddr_in6*)&modem_address)->sin6_addr,tlv+3,16);
+			*modem_address_length = sizeof(struct sockaddr_in6);
+			printf("  IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+3,peer_address,sizeof(peer_address)));
 			break;
 
 		case DLEP_PEER_TYPE_TLV:
-			strncpy(peer_type,tlv+2,tlv[1]);
+			printf("  Peer Type: %.*s\n",(int)tlv[1],tlv+2);
 			break;
 
 		case DLEP_STATUS_TLV:
@@ -171,6 +167,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 				printf("Received Peer Offer signal has status %u, not connecting\n",tlv[2]);
 				return 0;
 			}
+			printf("  Status: 0\n");
 			break;
 
 		default:
@@ -181,19 +178,9 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	if (!modem_address->ss_family)
 	{
 		/* If we did not find an address with a compatible family, report */
-		if (dest_addr->sa_family == AF_INET)
-			printf("Failed to find an IPv4 address in Peer Offer signal\n");
-		else
-			printf("Failed to find an IPv6 address in Peer Offer signal\n");
+		printf("Failed to find an IP address in Peer Offer signal\n");
 		return 0;
 	}
-
-	printf("Received Peer Offer signal from modem ");
-
-	if (*peer_type)
-		printf("%s ",peer_type);
-
-	printf("offering connection %s\n",printfAddress((struct sockaddr*)&modem_address,peer_address,sizeof(peer_address)));
 
 	return 1;
 }

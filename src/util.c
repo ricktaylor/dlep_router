@@ -28,6 +28,7 @@ THE SOFTWARE.
 
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 uint16_t get_uint16(const char* p)
 {
@@ -42,7 +43,30 @@ void set_uint16(uint16_t v, char* p)
 	p[1] = v & 0xFF;
 }
 
-const char* printfAddress(const struct sockaddr* addr, char* str, size_t str_len)
+uint32_t get_uint32(const char* p)
+{
+	/* Avoid ntohl() due to unaligned access issues on some architectures */
+	uint32_t v = *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	return v;
+}
+
+uint64_t get_uint64(const char* p)
+{
+	uint64_t v = *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	v = (v << 8) | *p++;
+	return v;
+}
+
+const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len)
 {
 	const char* ret = NULL;
 	char address[INET6_ADDRSTRLEN] = {0};
@@ -72,4 +96,31 @@ const char* printfAddress(const struct sockaddr* addr, char* str, size_t str_len
 
 	str[str_len-1] = '\0';
 	return str;
+}
+
+void printfBytes(const char* p, size_t len, char sep)
+{
+	while (len--)
+	{
+		printf("%2X%c",*p++,sep);
+	}
+}
+
+int interval_compare(const struct timespec* start, const struct timespec* end, unsigned int interval)
+{
+	struct timespec diff_time;
+	diff_time.tv_sec = end->tv_sec - start->tv_sec;
+	diff_time.tv_nsec = end->tv_nsec - start->tv_nsec;
+	if (diff_time.tv_nsec < 0)
+	{
+		--diff_time.tv_sec;
+		diff_time.tv_nsec += 1000000000;
+	}
+
+	if (diff_time.tv_sec < interval)
+		return -1;
+	if (diff_time.tv_sec > interval || diff_time.tv_nsec > 0)
+		return 1;
+
+	return 0;
 }

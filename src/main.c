@@ -39,7 +39,7 @@ THE SOFTWARE.
 int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval);
 
 /* Defined in session.c */
-int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t heartbeat_interval);
+int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t modem_heartbeat_interval, /* [int] */ uint16_t router_heartbeat_interval);
 
 static void help()
 {
@@ -50,14 +50,16 @@ static void help()
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
-    	"  -6 or --ipv6     Use IPv6 (defaults is IPv4)\n"
-		"  -h or --help     Show this text\n");
+    	"  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
+    	"  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
+		"  -h or --help          Show this text\n");
 }
 
 int main(int argc, char* argv[])
 {
 	const struct option options[] =
 	{
+		{ "heartbeat",0,NULL,'H' },
 		{ "help",0,NULL,'h' },
 		{ "ipv6",0,NULL,'6' },
 		{ 0 }
@@ -68,17 +70,22 @@ int main(int argc, char* argv[])
 	int use_ipv6 = 0;
 	struct sockaddr_storage address = {0};
 	socklen_t address_length = 0;
+	uint16_t router_heartbeat_interval = 0;
 
 	/* Disable getopt's error messages */
 	opterr = 0;
 
 	/* Parse command line arguments */
-	while ((c = getopt_long(argc, argv, ":h", options, &longindex)) != -1)
+	while ((c = getopt_long(argc, argv, ":h6H:", options, &longindex)) != -1)
 	{
 		switch (c)
 		{
 		case '6':
 			use_ipv6 = 1;
+			break;
+
+		case 'H':
+			router_heartbeat_interval = strtoul(optarg,NULL,10);
 			break;
 
 		case 'h':
@@ -158,17 +165,17 @@ int main(int argc, char* argv[])
 	/* Loop forever */
 	for (;;)
 	{
-		uint16_t heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
+		uint16_t modem_heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
 
 		if (optind == argc)
 		{
 			/* If no address was supplied on the command line, perform discovery
 			 * This is section 7.2 in the draft */
-			if (!discover(use_ipv6,&address,&address_length,&heartbeat_interval))
+			if (!discover(use_ipv6,&address,&address_length,&modem_heartbeat_interval))
 				return EXIT_FAILURE;
 		}
 
-		if (session((const struct sockaddr*)&address,address_length,heartbeat_interval) != 0)
+		if (session((const struct sockaddr*)&address,address_length,modem_heartbeat_interval,router_heartbeat_interval) != 0)
 			return EXIT_FAILURE;
 	}
 
