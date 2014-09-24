@@ -224,7 +224,7 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_
 	return ret;
 }
 
-int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
+static int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
