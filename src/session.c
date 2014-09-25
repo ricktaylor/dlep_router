@@ -264,7 +264,7 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
 			*heartbeat_interval = get_uint16(tlv+2);
@@ -323,7 +323,7 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 
 				while (tlv_type < end)
 				{
-					switch (*tlv_type++)
+					switch ((enum dlep_tlvs)*tlv_type++)
 					{
 					case DLEP_PEER_UPDATE:
 						printf("  Peer Update signal supported\n");
@@ -348,7 +348,7 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 
 				while (tlv_type < end)
 				{
-					switch (*tlv_type++)
+					switch ((enum dlep_tlvs)*tlv_type++)
 					{
 					case DLEP_RESR_TLV:
 						printf("  Resources (Receive) TLV supported\n");
@@ -410,7 +410,7 @@ static void parse_peer_update_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_IPV4_ADDRESS_TLV:
 		case DLEP_IPV6_ADDRESS_TLV:
@@ -472,7 +472,7 @@ static void parse_destination_up_signal(int s, const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",tlv[2],tlv[3],tlv[4],tlv[5],tlv[6],tlv[7]);
@@ -535,7 +535,7 @@ static void parse_destination_update_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",tlv[2],tlv[3],tlv[4],tlv[5],tlv[6],tlv[7]);
@@ -610,7 +610,7 @@ static int handle_signal(int s, const char* msg, size_t len, uint16_t* modem_hea
 			ret = 1;
 
 			/* Check the signal type */
-			switch (msg[0])
+			switch ((enum dlep_signals)msg[0])
 			{
 			case DLEP_PEER_DISCOVERY:
 				printf("Unexpected Peer Discovery signal received during 'in session' state\n");

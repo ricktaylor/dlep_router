@@ -220,7 +220,7 @@ static int check_optional_signals(const char* tlv)
 
 		while (tlv < end)
 		{
-			switch (*tlv++)
+			switch ((enum dlep_signals)*tlv++)
 			{
 			/* Mandatory signals */
 			case DLEP_PEER_DISCOVERY:
@@ -307,7 +307,7 @@ static int check_optional_data_items(const char* tlv)
 
 		while (tlv < end)
 		{
-			switch (*tlv++)
+			switch ((enum dlep_tlvs)*tlv++)
 			{
 			/* Mandatory TLVs */
 			case DLEP_PORT_TLV:
@@ -450,7 +450,7 @@ int check_peer_offer_signal(const char* msg, size_t len)
 	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_PORT_TLV:
 			if (seen_port)
@@ -585,7 +585,7 @@ int check_peer_init_ack_signal(const char* msg, size_t len)
 	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
 			if (seen_heartbeat)
@@ -811,7 +811,7 @@ int check_heartbeat_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
 			if (seen_heartbeat)
@@ -851,7 +851,7 @@ int check_peer_term_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_STATUS_TLV:
 			if (seen_status)
@@ -899,7 +899,7 @@ int check_peer_update_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_IPV4_ADDRESS_TLV:
 			if (!check_ipv4_address(tlv))
@@ -1054,7 +1054,7 @@ int check_destination_up_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			if (seen_mac)
@@ -1221,7 +1221,7 @@ int check_destination_update_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			if (seen_mac)
@@ -1379,7 +1379,7 @@ int check_destination_down_signal(const char* tlvs, size_t len)
 	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			if (seen_mac)

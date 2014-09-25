@@ -127,7 +127,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 	{
 		/* Octet 0 is the TLV type */
-		switch (tlv[0])
+		switch ((enum dlep_tlvs)tlv[0])
 		{
 		case DLEP_PORT_TLV:
 			port = get_uint16(tlv+2);

@@ -41,47 +41,55 @@ values will survive the standardisation process.
 #define DLEP_WELL_KNOWN_MULTICAST_PORT 22222
 
 /* The signal numbers */
-#define DLEP_PEER_DISCOVERY                0
-#define DLEP_PEER_OFFER                    1
-#define DLEP_PEER_INITIALIZATION           2
-#define DLEP_PEER_INITIALIZATION_ACK       3
-#define DLEP_PEER_TERMINATION              4
-#define DLEP_PEER_TERMINATION_ACK          5
-#define DLEP_PEER_UPDATE                   6
-#define DLEP_PEER_UPDATE_ACK               7
-#define DLEP_DESTINATION_UP                8
-#define DLEP_DESTINATION_UP_ACK            9
-#define DLEP_DESTINATION_DOWN             10
-#define DLEP_DESTINATION_DOWN_ACK         11
-#define DLEP_DESTINATION_UPDATE           12
-#define DLEP_LINK_CHARACTERISTICS_REQUEST 13
-#define DLEP_LINK_CHARACTERISTICS_ACK     14
-#define DLEP_HEARTBEAT                    15
+enum dlep_signals {
+  DLEP_PEER_DISCOVERY               =  0,
+  DLEP_PEER_OFFER                   =  1,
+  DLEP_PEER_INITIALIZATION          =  2,
+  DLEP_PEER_INITIALIZATION_ACK      =  3,
+  DLEP_PEER_TERMINATION             =  4,
+  DLEP_PEER_TERMINATION_ACK         =  5,
+  DLEP_PEER_UPDATE                  =  6,
+  DLEP_PEER_UPDATE_ACK              =  7,
+  DLEP_DESTINATION_UP               =  8,
+  DLEP_DESTINATION_UP_ACK           =  9,
+  DLEP_DESTINATION_DOWN             = 10,
+  DLEP_DESTINATION_DOWN_ACK         = 11,
+  DLEP_DESTINATION_UPDATE           = 12,
+  DLEP_LINK_CHARACTERISTICS_REQUEST = 13,
+  DLEP_LINK_CHARACTERISTICS_ACK     = 14,
+  DLEP_HEARTBEAT                    = 15,
+
+  DLEP_SIGNAL_COUNT
+};
 
 /* The TLV discriminators */
-#define DLEP_PORT_TLV                 0
-#define DLEP_PEER_TYPE_TLV            1
-#define DLEP_MAC_ADDRESS_TLV          2
-#define DLEP_IPV4_ADDRESS_TLV         3
-#define DLEP_IPV6_ADDRESS_TLV         4
-#define DLEP_MDRR_TLV                 5
-#define DLEP_MDRT_TLV                 6
-#define DLEP_CDRR_TLV                 7
-#define DLEP_CDRT_TLV                 8
-#define DLEP_LATENCY_TLV              9
-#define DLEP_RESR_TLV                10
-#define DLEP_REST_TLV                11
-#define DLEP_RLQR_TLV                12
-#define DLEP_RLQT_TLV                13
-#define DLEP_STATUS_TLV              14
-#define DLEP_HEARTBEAT_INTERVAL_TLV  15
-#define DLEP_LINK_CHAR_ACK_TIMER_TLV 16
-#define DLEP_CREDIT_WIN_STATUS_TLV   17
-#define DLEP_CREDIT_GRANT_REQ_TLV    18
-#define DLEP_CREDIT_REQUEST_TLV      19
-#define DLEP_OPTIONAL_SIGNALS_TLV    20
-#define DLEP_OPTIONAL_DATA_ITEMS_TLV 21
-#define DLEP_VENDOR_EXTENSION_TLV    22
+enum dlep_tlvs {
+  DLEP_PORT_TLV                =  0,
+  DLEP_PEER_TYPE_TLV           =  1,
+  DLEP_MAC_ADDRESS_TLV         =  2,
+  DLEP_IPV4_ADDRESS_TLV        =  3,
+  DLEP_IPV6_ADDRESS_TLV        =  4,
+  DLEP_MDRR_TLV                =  5,
+  DLEP_MDRT_TLV                =  6,
+  DLEP_CDRR_TLV                =  7,
+  DLEP_CDRT_TLV                =  8,
+  DLEP_LATENCY_TLV             =  9,
+  DLEP_RESR_TLV                = 10,
+  DLEP_REST_TLV                = 11,
+  DLEP_RLQR_TLV                = 12,
+  DLEP_RLQT_TLV                = 13,
+  DLEP_STATUS_TLV              = 14,
+  DLEP_HEARTBEAT_INTERVAL_TLV  = 15,
+  DLEP_LINK_CHAR_ACK_TIMER_TLV = 16,
+  DLEP_CREDIT_WIN_STATUS_TLV   = 17,
+  DLEP_CREDIT_GRANT_REQ_TLV    = 18,
+  DLEP_CREDIT_REQUEST_TLV      = 19,
+  DLEP_OPTIONAL_SIGNALS_TLV    = 20,
+  DLEP_OPTIONAL_DATA_ITEMS_TLV = 21,
+  DLEP_VENDOR_EXTENSION_TLV    = 22,
+
+  DLEP_TLV_COUNT
+};
 
 /* Other, non-IANA, dlep_router default values */
 
