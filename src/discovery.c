@@ -74,7 +74,7 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 
 	/* Use select() to wait for secs seconds */
 	timeout.tv_sec = secs;
-	if (select(1,&readfds,NULL,NULL,&timeout) == -1)
+	if (select(s+1,&readfds,NULL,NULL,&timeout) == -1)
 	{
 		printf("Failed to wait for peer discovery signal: %s\n",strerror(errno));
 		return -1;

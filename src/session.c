@@ -771,7 +771,7 @@ static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router
 			if (!timeout.tv_sec)
 				timeout.tv_sec = (modem_heartbeat_interval > router_heartbeat_interval ? modem_heartbeat_interval : router_heartbeat_interval);;
 
-			if (select(1,&readfds,NULL,NULL,&timeout) == -1)
+			if (select(s+1,&readfds,NULL,NULL,&timeout) == -1)
 			{
 				printf("Failed to wait for signal: %s\n",strerror(errno));
 				return;
