@@ -13,7 +13,9 @@ Copyright (c) 2014 Airbus DS Limited
 uint16_t get_uint16(const char* p)
 {
 	/* Avoid ntohs() due to unaligned access issues on some architectures */
-	return (p[0] << 8 | p[1]);
+	uint16_t v = *p++;
+	v = (v << 8) | *p++;
+	return v;
 }
 
 void set_uint16(uint16_t v, char* p)
