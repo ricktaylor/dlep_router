@@ -763,14 +763,14 @@ static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router
 				clock_gettime(CLOCK_MONOTONIC,&now_time);
 
 				/* Check Modem heartbeat interval, check for 2 missed intervals */
-				if (modem_heartbeat_interval && interval_compare(&last_recv_time,&now_time,modem_heartbeat_interval * 2) < 0)
+				if (modem_heartbeat_interval && interval_compare(&last_recv_time,&now_time,modem_heartbeat_interval * 2) > 0)
 				{
 					printf("No heartbeat from modem within %u seconds, terminating session\n",modem_heartbeat_interval * 2);
 					break;
 				}
 
 				/* Check for our heartbeat interval */
-				if (router_heartbeat_interval && interval_compare(&last_sent_time,&now_time,router_heartbeat_interval) < 0)
+				if (router_heartbeat_interval && interval_compare(&last_sent_time,&now_time,router_heartbeat_interval) > 0)
 				{
 					/* Send out a heartbeat if the 'timer' has expired */
 					send_heartbeat(s,router_heartbeat_interval);
