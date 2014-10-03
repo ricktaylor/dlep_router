@@ -112,10 +112,6 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		case DLEP_PORT_TLV:
 			port = get_uint16(tlv+2);
 			printf("  DLEP Port: %u\n",port);
-			if (dest_addr->sa_family == AF_INET)
-				((struct sockaddr_in*)modem_address)->sin_port = htons(port);
-			else
-				((struct sockaddr_in6*)modem_address)->sin6_port = htons(port);
 			break;
 
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
@@ -161,6 +157,12 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		printf("Failed to find an IP address in Peer Offer signal\n");
 		return 0;
 	}
+
+	/* Set the port on the selected modem address */
+	if (modem_address->ss_family == AF_INET)
+		((struct sockaddr_in*)modem_address)->sin_port = htons(port);
+	else
+		((struct sockaddr_in6*)modem_address)->sin6_port = htons(port);
 
 	return 1;
 }
