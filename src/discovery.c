@@ -18,13 +18,31 @@ Copyright (c) 2014 Airbus DS Limited
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {
 	char str_address[FORMATADDRESS_LEN] = {0};
-	char msg[3];
-	uint16_t msg_len = 3;
+	char msg[25];
+	char* tlv;
+	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
 	msg[0] = DLEP_PEER_DISCOVERY;
 
+	/* Data items start at octet 3 */
+	tlv = msg + 3;
+
+	/* Write out our version */
+	tlv[0] = DLEP_VERSION_TLV;
+	tlv[1] = 4;
+	set_uint16(0,tlv + 2);
+	set_uint16(7,tlv + 4);
+	tlv += tlv[1] + 2;
+
+	/* Heartbeat TLV */
+	tlv[0] = DLEP_HEARTBEAT_INTERVAL_TLV;
+	tlv[1] = 2;
+	set_uint16(DEFAULT_HEARTBEAT_INTERVAL,tlv + 2);
+	tlv += tlv[1] + 2;
+
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
+	msg_len = tlv - msg;
 	set_uint16(msg_len,msg+1);
 
 	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));

@@ -24,6 +24,25 @@ static int check_port(const char* tlv)
 	return check_length(tlv,2,"DLEP Port");
 }
 
+static int check_version(const char* tlv)
+{
+	if (!check_length(tlv,4,"DLEP Version"))
+		return 0;
+	else
+	{
+		uint16_t major = get_uint16(tlv+2);
+		uint16_t minor = get_uint16(tlv+2);
+
+		if (major != 0 || minor != 7)
+		{
+			printf("Only DLEP version 0.7 supported, discovered %u.%u\n",major,minor);
+			return 0;
+		}
+
+		return 1;
+	}
+}
+
 static int check_peer_type(const char* tlv)
 {
 	size_t i = 0;
@@ -421,6 +440,7 @@ int check_peer_offer_signal(const char* msg, size_t len)
 	int seen_port = 0;
 	int seen_peer_type = 0;
 	int seen_status = 0;
+	int seen_version = 0;
 
 	/* Validate the signal */
 	if (!check_signal_length(msg,len,DLEP_PEER_OFFER,"Peer Offer"))
@@ -432,6 +452,18 @@ int check_peer_offer_signal(const char* msg, size_t len)
 		/* Octet 0 is the TLV type */
 		switch ((enum dlep_tlvs)tlv[0])
 		{
+		case DLEP_VERSION_TLV:
+			if (seen_version)
+			{
+				printf("Multiple DLEP version TLVs in Peer Offer signal\n");
+				ret = 0;
+			}
+			else if (!check_version(tlv))
+				ret = 0;
+			else
+				seen_version = 1;
+			break;
+
 		case DLEP_PORT_TLV:
 			if (seen_port)
 			{
@@ -523,6 +555,12 @@ int check_peer_offer_signal(const char* msg, size_t len)
 		ret = 0;
 	}
 
+	if (!seen_version)
+	{
+		printf("Missing mandatory DLEP Version TLV in Peer Offer signal\n");
+		ret = 0;
+	}
+
 	if (!seen_heartbeat)
 	{
 		printf("Missing mandatory Heartbeat Interval TLV in Peer Offer signal\n");
@@ -556,6 +594,7 @@ int check_peer_init_ack_signal(const char* msg, size_t len)
 	int seen_rlqt = 0;
 	int seen_status = 0;
 	int seen_peer_type = 0;
+	int seen_version = 0;
 
 	/* Validate the signal */
 	if (!check_signal_length(msg,len,DLEP_PEER_INITIALIZATION_ACK,"Peer Initialization ACK"))
@@ -567,6 +606,18 @@ int check_peer_init_ack_signal(const char* msg, size_t len)
 		/* Octet 0 is the TLV type */
 		switch ((enum dlep_tlvs)tlv[0])
 		{
+		case DLEP_VERSION_TLV:
+			if (seen_version)
+			{
+				printf("Multiple DLEP version TLVs in Peer Initialization ACK signal\n");
+				ret = 0;
+			}
+			else if (!check_version(tlv))
+				ret = 0;
+			else
+				seen_version = 1;
+			break;
+
 		case DLEP_HEARTBEAT_INTERVAL_TLV:
 			if (seen_heartbeat)
 			{
@@ -757,6 +808,12 @@ int check_peer_init_ack_signal(const char* msg, size_t len)
 	if (!seen_status)
 	{
 		printf("Missing mandatory Status TLV in Peer Initialization ACK signal\n");
+		ret = 0;
+	}
+
+	if (!seen_version)
+	{
+		printf("Missing mandatory DLEP Version TLV in Peer Initialization ACK signal\n");
 		ret = 0;
 	}
 
