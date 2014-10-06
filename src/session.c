@@ -764,6 +764,15 @@ static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router
 				return;
 			}
 
+			/* Check for our heartbeat interval */
+			if (router_heartbeat_interval && interval_compare(&last_sent_time,&now_time,router_heartbeat_interval) > 0)
+			{
+				/* Send out a heartbeat if the 'timer' has expired */
+				send_heartbeat(s,router_heartbeat_interval);
+
+				last_sent_time = now_time;
+			}
+
 			if (!FD_ISSET(s,&readfds))
 			{
 				/* Timeout */
@@ -774,15 +783,6 @@ static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router
 				{
 					printf("No heartbeat from modem within %u seconds, terminating session\n",modem_heartbeat_interval * 2);
 					break;
-				}
-
-				/* Check for our heartbeat interval */
-				if (router_heartbeat_interval && interval_compare(&last_sent_time,&now_time,router_heartbeat_interval) > 0)
-				{
-					/* Send out a heartbeat if the 'timer' has expired */
-					send_heartbeat(s,router_heartbeat_interval);
-
-					last_sent_time = now_time;
 				}
 
 				/* Wait again */
