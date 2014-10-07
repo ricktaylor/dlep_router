@@ -728,9 +728,57 @@ static int handle_signal(int s, const char* msg, size_t len, uint16_t* modem_hea
 	return ret;
 }
 
-static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router_heartbeat_interval)
+static ssize_t recv_signal(int s, char** msg)
 {
-	char msg[1500] = {0};
+	ssize_t received = -1;
+
+	/* Make sure we have room for the header */
+	char* new_msg = realloc(*msg,3);
+	if (!new_msg)
+	{
+		int err = errno;
+		printf("Failed to allocate message buffer");
+		errno = err;
+		return -1;
+	}
+
+	*msg = new_msg;
+
+	/* Receive the header */
+	received = recv(s,*msg,3,0);
+	if (received == 3)
+	{
+		/* Read the signal length */
+		uint16_t reported_len = get_uint16((*msg)+1);
+		if (reported_len)
+		{
+			/* Make more room in the message buffer */
+			new_msg = realloc(*msg,3 + reported_len);
+			if (!new_msg)
+			{
+				int err = errno;
+				printf("Failed to allocate message buffer");
+				errno = err;
+				return -1;
+			}
+
+			*msg = new_msg;
+
+			/* Receive the rest of the signal */
+			received = recv(s,(*msg)+2,reported_len,0);
+			if (received == -1)
+				return -1;
+
+			/* Include the header length in the return value */
+			received += 3;
+		}
+	}
+
+	return received;
+}
+
+static void in_session(int s, char* msg, uint16_t modem_heartbeat_interval, uint16_t router_heartbeat_interval)
+{
 	struct timespec last_recv_time = {0};
 	struct timespec last_sent_time = {0};
 	struct timespec now_time = {0};
@@ -791,7 +839,7 @@ static void in_session(int s, uint16_t modem_heartbeat_interval, uint16_t router
 		}
 
 		/* Receive a signal */
-		received = recv(s,msg,sizeof(msg),0);
+		received = recv_signal(s,&msg);
 		if (received == -1)
 		{
 			printf("Failed to receive from TCP socket: %s\n",strerror(errno));
@@ -833,13 +881,13 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 	}
 	else if (send_peer_init_signal(s,router_heartbeat_interval))
 	{
-		char msg[1500];
+		char* msg = NULL;
 		ssize_t received;
 
 		printf("Waiting for Peer Initialization ACK signal\n");
 
 		/* Receive a Peer Initialization ACK signal */
-		received = recv(s,msg,sizeof(msg),0);
+		received = recv_signal(s,&msg);
 		if (received == -1)
 			printf("Failed to receive from TCP socket: %s\n",strerror(errno));
 		else if (received == 0)
@@ -860,10 +908,12 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 				{
 					printf("Moving to 'in-session' state\n");
 
-					in_session(s,modem_heartbeat_interval,router_heartbeat_interval);
+					in_session(s,msg,modem_heartbeat_interval,router_heartbeat_interval);
 				}
 			}
 		}
+
+		free(msg);
 	}
 
 	close(s);
