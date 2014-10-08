@@ -263,7 +263,7 @@ static int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_
 	return ret;
 }
 
-int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval)
+int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
@@ -275,10 +275,27 @@ int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem
 	}
 	else
 	{
-		if (use_ipv6)
-			ret = discover_ipv6(s,modem_address,modem_address_length,heartbeat_interval);
-		else
-			ret = discover_ipv4(s,modem_address,modem_address_length,heartbeat_interval);
+		ret = 1;
+
+		if (iface)
+		{
+			/* Bind the socket to the specified interface */
+			if (geteuid() != 0)
+				printf("Not binding multicast discovery discovery to interface %s as not root\n",iface);
+			else if (setsockopt(s,SOL_SOCKET,SO_BINDTODEVICE, iface, strlen(iface)+1) != 0)
+			{
+				printf("Failed to bind socket to interface %s: %s\n",iface,strerror(errno));
+				ret = 0;
+			}
+		}
+
+		if (ret)
+		{
+			if (use_ipv6)
+				ret = discover_ipv6(s,modem_address,modem_address_length,heartbeat_interval);
+			else
+				ret = discover_ipv4(s,modem_address,modem_address_length,heartbeat_interval);
+		}
 
 		close(s);
 	}

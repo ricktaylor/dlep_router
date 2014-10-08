@@ -16,7 +16,7 @@ Copyright (c) 2014 Airbus DS Limited
 #include "./dlep_iana.h"
 
 /* Defined in discovery.c */
-int discover(/* [in] */ int use_ipv6, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval);
+int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval);
 
 /* Defined in session.c */
 int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t modem_heartbeat_interval, /* [int] */ uint16_t router_heartbeat_interval);
@@ -31,6 +31,7 @@ static void help()
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
     	"  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
+		"  -I or --interface <I> Bind the discovery to interface I, requires root\n"
     	"  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
 		"  -h or --help          Show this text\n");
 }
@@ -39,7 +40,8 @@ int main(int argc, char* argv[])
 {
 	const struct option options[] =
 	{
-		{ "heartbeat",0,NULL,'H' },
+		{ "heartbeat",1,NULL,'H' },
+		{ "interface",1,NULL,'I' },
 		{ "help",0,NULL,'h' },
 		{ "ipv6",0,NULL,'6' },
 		{ 0 }
@@ -51,15 +53,20 @@ int main(int argc, char* argv[])
 	struct sockaddr_storage address = {0};
 	socklen_t address_length = 0;
 	uint16_t router_heartbeat_interval = 0;
+	const char* iface = NULL;
 
 	/* Disable getopt's error messages */
 	opterr = 0;
 
 	/* Parse command line arguments */
-	while ((c = getopt_long(argc, argv, ":h6H:", options, &longindex)) != -1)
+	while ((c = getopt_long(argc, argv, ":h6H:I:", options, &longindex)) != -1)
 	{
 		switch (c)
 		{
+		case 'I':
+			iface = optarg;
+			break;
+
 		case '6':
 			use_ipv6 = 1;
 			break;
@@ -151,7 +158,7 @@ int main(int argc, char* argv[])
 		{
 			/* If no address was supplied on the command line, perform discovery
 			 * This is section 7.2 in the draft */
-			if (!discover(use_ipv6,&address,&address_length,&modem_heartbeat_interval))
+			if (!discover(use_ipv6,iface,&address,&address_length,&modem_heartbeat_interval))
 				return EXIT_FAILURE;
 		}
 
