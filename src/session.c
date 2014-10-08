@@ -753,7 +753,7 @@ static ssize_t recv_signal(int s, char** msg)
 		if (reported_len)
 		{
 			/* Make more room in the message buffer */
-			new_msg = realloc(*msg,3 + reported_len);
+			new_msg = realloc(*msg,reported_len);
 			if (!new_msg)
 			{
 				int err = errno;
@@ -765,7 +765,7 @@ static ssize_t recv_signal(int s, char** msg)
 			*msg = new_msg;
 
 			/* Receive the rest of the signal */
-			received = recv(s,(*msg)+2,reported_len,0);
+			received = recv(s,(*msg)+2,reported_len - 3,0);
 			if (received == -1)
 				return -1;
 
