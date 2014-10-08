@@ -765,7 +765,7 @@ static ssize_t recv_signal(int s, char** msg)
 			*msg = new_msg;
 
 			/* Receive the rest of the signal */
-			received = recv(s,(*msg)+2,reported_len - 3,0);
+			received = recv(s,(*msg)+3,reported_len - 3,0);
 			if (received == -1)
 				return -1;
 
