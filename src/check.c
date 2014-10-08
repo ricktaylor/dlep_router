@@ -31,7 +31,7 @@ static int check_version(const char* tlv)
 	else
 	{
 		uint16_t major = get_uint16(tlv+2);
-		uint16_t minor = get_uint16(tlv+2);
+		uint16_t minor = get_uint16(tlv+4);
 
 		if (major != 0 || minor != 7)
 		{
@@ -207,84 +207,76 @@ static int check_status(const char* tlv)
 static int check_optional_signals(const char* tlv)
 {
 	int ret = 1;
-	if (tlv[1] < 2)
-	{
-		printf("Incorrect length in Optional Signals Supported TLV: %u, expected >=2 \n",(unsigned int)tlv[1]);
-		ret = 0;
-	}
-	else
-	{
-		const char* end = tlv + tlv[1];
-		tlv += 2;
+	const char* end = tlv + tlv[1];
+	tlv += 2;
 
-		while (tlv < end)
+	while (tlv < end)
+	{
+		switch ((enum dlep_signals)*tlv++)
 		{
-			switch ((enum dlep_signals)*tlv++)
-			{
-			/* Mandatory signals */
-			case DLEP_PEER_DISCOVERY:
-				printf("Unexpected mandatory Peer Discovery signal in Optional Signals Supported TLV\n");
-				break;
+		/* Mandatory signals */
+		case DLEP_PEER_DISCOVERY:
+			printf("Unexpected mandatory Peer Discovery signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_PEER_OFFER:
-				printf("Unexpected mandatory Peer Offer signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_PEER_OFFER:
+			printf("Unexpected mandatory Peer Offer signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_PEER_INITIALIZATION:
-				printf("Unexpected mandatory Peer Initialization signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_PEER_INITIALIZATION:
+			printf("Unexpected mandatory Peer Initialization signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_PEER_INITIALIZATION_ACK:
-				printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_PEER_INITIALIZATION_ACK:
+			printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_PEER_TERMINATION:
-				printf("Unexpected mandatory Peer Termination signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_PEER_TERMINATION:
+			printf("Unexpected mandatory Peer Termination signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_PEER_TERMINATION_ACK:
-				printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_PEER_TERMINATION_ACK:
+			printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_DESTINATION_UP:
-				printf("Unexpected mandatory Destination Up signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_DESTINATION_UP:
+			printf("Unexpected mandatory Destination Up signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_DESTINATION_UP_ACK:
-				printf("Unexpected mandatory Destination Up Ack signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_DESTINATION_UP_ACK:
+			printf("Unexpected mandatory Destination Up Ack signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_DESTINATION_DOWN:
-				printf("Unexpected mandatory Destination Down signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_DESTINATION_DOWN:
+			printf("Unexpected mandatory Destination Down signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_DESTINATION_DOWN_ACK:
-				printf("Unexpected mandatory Destination Down Ack signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_DESTINATION_DOWN_ACK:
+			printf("Unexpected mandatory Destination Down Ack signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_DESTINATION_UPDATE:
-				printf("Unexpected mandatory Destination Update signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_DESTINATION_UPDATE:
+			printf("Unexpected mandatory Destination Update signal in Optional Signals Supported TLV\n");
+			break;
 
-			case DLEP_HEARTBEAT:
-				printf("Unexpected mandatory Heartbeat signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_HEARTBEAT:
+			printf("Unexpected mandatory Heartbeat signal in Optional Signals Supported TLV\n");
+			break;
 
-			/* Valid optional signals */
-			case DLEP_PEER_UPDATE:
-			case DLEP_PEER_UPDATE_ACK:
-			case DLEP_LINK_CHARACTERISTICS_ACK:
-				break;
+		/* Valid optional signals */
+		case DLEP_PEER_UPDATE:
+		case DLEP_PEER_UPDATE_ACK:
+		case DLEP_LINK_CHARACTERISTICS_ACK:
+			break;
 
-			case DLEP_LINK_CHARACTERISTICS_REQUEST:
-				printf("Unexpected Link Characteristics Request signal in Optional Signals Supported TLV\n");
-				break;
+		case DLEP_LINK_CHARACTERISTICS_REQUEST:
+			printf("Unexpected Link Characteristics Request signal in Optional Signals Supported TLV\n");
+			break;
 
-			default:
-				printf("Unrecognized signal %u in Optional Signals Supported TLV\n",*tlv);
-				ret = 0;
-				break;
-			}
+		default:
+			printf("Unrecognized signal %u in Optional Signals Supported TLV\n",*tlv);
+			ret = 0;
+			break;
 		}
 	}
 
@@ -294,107 +286,99 @@ static int check_optional_signals(const char* tlv)
 static int check_optional_data_items(const char* tlv)
 {
 	int ret = 1;
-	if (tlv[1] < 2)
-	{
-		printf("Incorrect length in Optional Data Items Supported TLV: %u, expected >=2 \n",(unsigned int)tlv[1]);
-		ret = 0;
-	}
-	else
-	{
-		const char* end = tlv + tlv[1];
-		tlv += 2;
+	const char* end = tlv + tlv[1];
+	tlv += 2;
 
-		while (tlv < end)
+	while (tlv < end)
+	{
+		switch ((enum dlep_tlvs)*tlv++)
 		{
-			switch ((enum dlep_tlvs)*tlv++)
-			{
-			/* Mandatory TLVs */
-			case DLEP_PORT_TLV:
-				printf("Unexpected mandatory DLEP Port TLV in Optional Data Items Supported TLV\n");
-				break;
+		/* Mandatory TLVs */
+		case DLEP_PORT_TLV:
+			printf("Unexpected mandatory DLEP Port TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_MAC_ADDRESS_TLV:
-				printf("Unexpected mandatory MAC Address TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_MAC_ADDRESS_TLV:
+			printf("Unexpected mandatory MAC Address TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_MDRR_TLV:
-				printf("Unexpected mandatory Maximum Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_MDRR_TLV:
+			printf("Unexpected mandatory Maximum Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_MDRT_TLV:
-				printf("Unexpected mandatory Maximum Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_MDRT_TLV:
+			printf("Unexpected mandatory Maximum Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_CDRR_TLV:
-				printf("Unexpected mandatory Current Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_CDRR_TLV:
+			printf("Unexpected mandatory Current Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_CDRT_TLV:
-				printf("Unexpected mandatory Current Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_CDRT_TLV:
+			printf("Unexpected mandatory Current Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_LATENCY_TLV:
-				printf("Unexpected mandatory Latency TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_LATENCY_TLV:
+			printf("Unexpected mandatory Latency TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_STATUS_TLV:
-				printf("Unexpected mandatory Status TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_STATUS_TLV:
+			printf("Unexpected mandatory Status TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_HEARTBEAT_INTERVAL_TLV:
-				printf("Unexpected mandatory Heartbeat Interval TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_HEARTBEAT_INTERVAL_TLV:
+			printf("Unexpected mandatory Heartbeat Interval TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_OPTIONAL_SIGNALS_TLV:
-				printf("Unexpected mandatory Optional Signals Supported TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_OPTIONAL_SIGNALS_TLV:
+			printf("Unexpected mandatory Optional Signals Supported TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_OPTIONAL_DATA_ITEMS_TLV:
-				printf("Unexpected mandatory Optional Data Items Supported TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_OPTIONAL_DATA_ITEMS_TLV:
+			printf("Unexpected mandatory Optional Data Items Supported TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			/* Optional, but non-Data Item TLVs */
-			case DLEP_PEER_TYPE_TLV:
-				printf("Unexpected Peer Type TLV in Optional Data Items Supported TLV\n");
-				break;
+		/* Optional, but non-Data Item TLVs */
+		case DLEP_PEER_TYPE_TLV:
+			printf("Unexpected Peer Type TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_IPV4_ADDRESS_TLV:
-				printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_IPV4_ADDRESS_TLV:
+			printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_IPV6_ADDRESS_TLV:
-				printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_IPV6_ADDRESS_TLV:
+			printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_LINK_CHAR_ACK_TIMER_TLV:
-				printf("Unexpected Link Characteristics ACK Timer TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_LINK_CHAR_ACK_TIMER_TLV:
+			printf("Unexpected Link Characteristics ACK Timer TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_CREDIT_WIN_STATUS_TLV:
-				printf("Unexpected Credit Window Status TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_CREDIT_WIN_STATUS_TLV:
+			printf("Unexpected Credit Window Status TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_CREDIT_GRANT_REQ_TLV:
-				printf("Unexpected Credit Grant Request TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_CREDIT_GRANT_REQ_TLV:
+			printf("Unexpected Credit Grant Request TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			case DLEP_CREDIT_REQUEST_TLV:
-				printf("Unexpected Credit Request TLV in Optional Data Items Supported TLV\n");
-				break;
+		case DLEP_CREDIT_REQUEST_TLV:
+			printf("Unexpected Credit Request TLV in Optional Data Items Supported TLV\n");
+			break;
 
-			/* Optional and reportable */
-			case DLEP_RESR_TLV:
-			case DLEP_REST_TLV:
-			case DLEP_RLQR_TLV:
-			case DLEP_RLQT_TLV:
-			case DLEP_VENDOR_EXTENSION_TLV:
-				break;
+		/* Optional and reportable */
+		case DLEP_RESR_TLV:
+		case DLEP_REST_TLV:
+		case DLEP_RLQR_TLV:
+		case DLEP_RLQT_TLV:
+		case DLEP_VENDOR_EXTENSION_TLV:
+			break;
 
-			default:
-				printf("Unrecognized TLV %u in Optional Data Items Supported TLV\n",*tlv);
-				ret = 0;
-				break;
-			}
+		default:
+			printf("Unrecognized TLV %u in Optional Data Items Supported TLV\n",*tlv);
+			ret = 0;
+			break;
 		}
 	}
 
