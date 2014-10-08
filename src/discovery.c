@@ -81,7 +81,7 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 		return 0;
 
 	/* Receive the signal */
-	received = recvfrom(s,msg,sizeof(msg),0,(struct sockaddr*)&recv_address,&recv_address_len);
+	received = recvfrom(s,msg,1500,0,(struct sockaddr*)&recv_address,&recv_address_len);
 	if (received == -1)
 	{
 		printf("Failed to receive from UDP socket: %s\n",strerror(errno));
