@@ -812,6 +812,8 @@ static void in_session(int s, char* msg, uint16_t modem_heartbeat_interval, uint
 				return;
 			}
 
+			clock_gettime(CLOCK_MONOTONIC,&now_time);
+
 			/* Check for our heartbeat interval */
 			if (router_heartbeat_interval && interval_compare(&last_sent_time,&now_time,router_heartbeat_interval) > 0)
 			{
@@ -824,7 +826,6 @@ static void in_session(int s, char* msg, uint16_t modem_heartbeat_interval, uint
 			if (!FD_ISSET(s,&readfds))
 			{
 				/* Timeout */
-				clock_gettime(CLOCK_MONOTONIC,&now_time);
 
 				/* Check Modem heartbeat interval, check for 2 missed intervals */
 				if (modem_heartbeat_interval && interval_compare(&last_recv_time,&now_time,modem_heartbeat_interval * 2) > 0)
