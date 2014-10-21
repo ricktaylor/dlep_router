@@ -99,7 +99,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	ssize_t len = 0;
 	const char* tlv;
 	char peer_address[INET6_ADDRSTRLEN] = {0};
-	uint16_t port;
+	uint16_t port = 0;
 
 	/* Loop until we have a Peer Offer signal or an error */
 	while (len == 0)
@@ -173,6 +173,13 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	{
 		/* If we did not find an address with a compatible family, report */
 		printf("Failed to find an IP address in Peer Offer signal\n");
+		return 0;
+	}
+
+	if (!port)
+	{
+		/* If we did not find a port, report */
+		printf("Failed to find an port in Peer Offer signal\n");
 		return 0;
 	}
 
