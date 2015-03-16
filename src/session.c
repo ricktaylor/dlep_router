@@ -663,7 +663,7 @@ static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_
 					status = 1;
 				else
 				{
-					printf("Received Destination Update signal from modem:\n");
+					printf("Received Destination Down signal from modem:\n");
 
 					/* The signal has been validated so just scan for the relevant tlvs */
 					printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",msg[5],msg[6],msg[7],msg[8],msg[9],msg[10]);
