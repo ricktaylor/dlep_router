@@ -24,16 +24,16 @@ int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen
 static void help()
 {
     printf(
-		"dlep_router - A logging DLEP router\n"
+	"dlep_router - A logging DLEP router\n"
         "  Version 0.1.0\n"
         "  Copyright (c) 2014 Airbus DS Limited\n\n"
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
     	"  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
-		"  -I or --interface <I> Bind the discovery to interface I, requires root\n"
+	"  -I or --interface <I> Bind the discovery to interface I, requires root\n"
     	"  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
-		"  -h or --help          Show this text\n");
+	"  -h or --help          Show this text\n");
 }
 
 int main(int argc, char* argv[])
