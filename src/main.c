@@ -122,17 +122,18 @@ int main(int argc, char* argv[])
 		}
 
 		/* Try to parse */
-		if (!use_ipv6 && inet_pton(AF_INET,argv[optind],&address))
+		if (!use_ipv6 && inet_pton(AF_INET,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in*)&address)->sin_family = AF_INET;
 			((struct sockaddr_in*)&address)->sin_port = htons(port);
+			address_length = sizeof(struct sockaddr_in);
 			memcpy(&((struct sockaddr_in*)&address)->sin_addr,address_buffer,4);
 		}
-		else if (use_ipv6 && inet_pton(AF_INET6,argv[optind],&address))
+		else if (use_ipv6 && inet_pton(AF_INET6,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in6*)&address)->sin6_family = AF_INET6;
 			((struct sockaddr_in6*)&address)->sin6_port = htons(port);
-
+			address_length = sizeof(struct sockaddr_in6);
 			memcpy(&((struct sockaddr_in6*)&address)->sin6_addr,address_buffer,16);
 		}
 		else
