@@ -10,7 +10,7 @@ Copyright (c) 2014 Airbus DS Limited
 #include <stdlib.h>
 #include <stdio.h>
 
-uint16_t get_uint16(const char* p)
+uint16_t get_uint16(const uint8_t* p)
 {
 	/* Avoid ntohs() due to unaligned access issues on some architectures */
 	uint16_t v = *p++;
@@ -18,14 +18,14 @@ uint16_t get_uint16(const char* p)
 	return v;
 }
 
-void set_uint16(uint16_t v, char* p)
+void set_uint16(uint16_t v, uint8_t* p)
 {
 	/* Avoid htons() due to unaligned access issues on some architectures */
 	p[0] = v >> 8;
 	p[1] = v & 0xFF;
 }
 
-uint32_t get_uint32(const char* p)
+uint32_t get_uint32(const uint8_t* p)
 {
 	/* Avoid ntohl() due to unaligned access issues on some architectures */
 	uint32_t v = *p++;
@@ -35,7 +35,7 @@ uint32_t get_uint32(const char* p)
 	return v;
 }
 
-uint64_t get_uint64(const char* p)
+uint64_t get_uint64(const uint8_t* p)
 {
 	uint64_t v = *p++;
 	v = (v << 8) | *p++;
@@ -80,7 +80,7 @@ const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len
 	return str;
 }
 
-void printfBytes(const char* p, size_t len, char sep)
+void printfBytes(const uint8_t* p, size_t len, char sep)
 {
 	while (len--)
 	{

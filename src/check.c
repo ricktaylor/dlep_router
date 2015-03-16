@@ -9,7 +9,7 @@ Copyright (c) 2014 Airbus DS Limited
 
 #include "./dlep_iana.h"
 
-static int check_length(const char* tlv, unsigned int len, const char* name)
+static int check_length(const uint8_t* tlv, unsigned int len, const char* name)
 {
 	if (tlv[1] != len)
 	{
@@ -19,12 +19,12 @@ static int check_length(const char* tlv, unsigned int len, const char* name)
 	return 1;
 }
 
-static int check_port(const char* tlv)
+static int check_port(const uint8_t* tlv)
 {
 	return check_length(tlv,2,"DLEP Port");
 }
 
-static int check_version(const char* tlv)
+static int check_version(const uint8_t* tlv)
 {
 	if (!check_length(tlv,4,"DLEP Version"))
 		return 0;
@@ -43,7 +43,7 @@ static int check_version(const char* tlv)
 	}
 }
 
-static int check_peer_type(const char* tlv)
+static int check_peer_type(const uint8_t* tlv)
 {
 	size_t i = 0;
 	for (; i < tlv[1]; ++i)
@@ -61,12 +61,12 @@ static int check_peer_type(const char* tlv)
 	return 1;
 }
 
-static int check_heartbeat_interval(const char* tlv)
+static int check_heartbeat_interval(const uint8_t* tlv)
 {
 	return check_length(tlv,2,"Heartbeat Interval");
 }
 
-static int check_ipv4_address(const char* tlv)
+static int check_ipv4_address(const uint8_t* tlv)
 {
 	if (!check_length(tlv,5,"IPv4 Address"))
 		return 0;
@@ -80,7 +80,7 @@ static int check_ipv4_address(const char* tlv)
 	return 1;
 }
 
-static int check_ipv6_address(const char* tlv)
+static int check_ipv6_address(const uint8_t* tlv)
 {
 	if (!check_length(tlv,17,"IPv6 Address"))
 		return 0;
@@ -94,32 +94,32 @@ static int check_ipv6_address(const char* tlv)
 	return 1;
 }
 
-static int check_mdrr(const char* tlv)
+static int check_mdrr(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Maximum Data Rate (Receive)");
 }
 
-static int check_mdrt(const char* tlv)
+static int check_mdrt(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Maximum Data Rate (Transmit)");
 }
 
-static int check_cdrr(const char* tlv)
+static int check_cdrr(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Current Data Rate (Receive)");
 }
 
-static int check_cdrt(const char* tlv)
+static int check_cdrt(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Current Data Rate (Transmit)");
 }
 
-static int check_latency(const char* tlv)
+static int check_latency(const uint8_t* tlv)
 {
 	return check_length(tlv,4,"Latency");
 }
 
-static int check_resr(const char* tlv)
+static int check_resr(const uint8_t* tlv)
 {
 	if (!check_length(tlv,1,"Resources (Receive)"))
 		return 0;
@@ -133,7 +133,7 @@ static int check_resr(const char* tlv)
 	return 1;
 }
 
-static int check_rest(const char* tlv)
+static int check_rest(const uint8_t* tlv)
 {
 	if (!check_length(tlv,1,"Resources (Transmit)"))
 		return 0;
@@ -147,7 +147,7 @@ static int check_rest(const char* tlv)
 	return 1;
 }
 
-static int check_rlqr(const char* tlv)
+static int check_rlqr(const uint8_t* tlv)
 {
 	if (!check_length(tlv,1,"Relative Link Quality (Receive)"))
 		return 0;
@@ -161,7 +161,7 @@ static int check_rlqr(const char* tlv)
 	return 1;
 }
 
-static int check_rlqt(const char* tlv)
+static int check_rlqt(const uint8_t* tlv)
 {
 	if (!check_length(tlv,1,"Relative Link Quality (Transmit)"))
 		return 0;
@@ -175,7 +175,7 @@ static int check_rlqt(const char* tlv)
 	return 1;
 }
 
-static int check_vendor_extension(const char* tlv)
+static int check_vendor_extension(const uint8_t* tlv)
 {
 	if (tlv[1] < 4)
 	{
@@ -199,15 +199,15 @@ static int check_vendor_extension(const char* tlv)
 	return 1;
 }
 
-static int check_status(const char* tlv)
+static int check_status(const uint8_t* tlv)
 {
 	return check_length(tlv,1,"Status TLV");
 }
 
-static int check_optional_signals(const char* tlv)
+static int check_optional_signals(const uint8_t* tlv)
 {
 	int ret = 1;
-	const char* end = tlv + tlv[1];
+	const uint8_t* end = tlv + tlv[1];
 	tlv += 2;
 
 	while (tlv < end)
@@ -283,10 +283,10 @@ static int check_optional_signals(const char* tlv)
 	return ret;
 }
 
-static int check_optional_data_items(const char* tlv)
+static int check_optional_data_items(const uint8_t* tlv)
 {
 	int ret = 1;
-	const char* end = tlv + tlv[1];
+	const uint8_t* end = tlv + tlv[1];
 	tlv += 2;
 
 	while (tlv < end)
@@ -385,12 +385,12 @@ static int check_optional_data_items(const char* tlv)
 	return ret;
 }
 
-static int check_mac_address(const char* tlv)
+static int check_mac_address(const uint8_t* tlv)
 {
 	return check_length(tlv,6,"MAC Address TLV");
 }
 
-static int check_signal_length(const char* msg, size_t len, unsigned int id, const char* name)
+static int check_signal_length(const uint8_t* msg, size_t len, unsigned int id, const char* name)
 {
 	if (len < 3)
 	{
@@ -415,10 +415,10 @@ static int check_signal_length(const char* msg, size_t len, unsigned int id, con
 	return 1;
 }
 
-int check_peer_offer_signal(const char* msg, size_t len)
+int check_peer_offer_signal(const uint8_t* msg, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_heartbeat = 0;
 	int seen_ip_address = 0;
 	int seen_port = 0;
@@ -560,10 +560,10 @@ int check_peer_offer_signal(const char* msg, size_t len)
 	return ret;
 }
 
-int check_peer_init_ack_signal(const char* msg, size_t len)
+int check_peer_init_ack_signal(const uint8_t* msg, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_heartbeat = 0;
 	int seen_opt_signals = 0;
 	int seen_opt_data_items = 0;
@@ -822,10 +822,10 @@ int check_peer_init_ack_signal(const char* msg, size_t len)
 	return ret;
 }
 
-int check_heartbeat_signal(const char* tlvs, size_t len)
+int check_heartbeat_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_heartbeat = 0;
 
 	/* Check for mandatory TLV's */
@@ -862,10 +862,10 @@ int check_heartbeat_signal(const char* tlvs, size_t len)
 	return ret;
 }
 
-int check_peer_term_signal(const char* tlvs, size_t len)
+int check_peer_term_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_status = 0;
 
 	/* Check for mandatory TLV's */
@@ -902,10 +902,10 @@ int check_peer_term_signal(const char* tlvs, size_t len)
 	return ret;
 }
 
-int check_peer_update_signal(const char* tlvs, size_t len)
+int check_peer_update_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_mdrr = 0;
 	int seen_mdrt = 0;
 	int seen_cdrr = 0;
@@ -1056,10 +1056,10 @@ int check_peer_update_signal(const char* tlvs, size_t len)
 	return ret;
 }
 
-int check_destination_up_signal(const char* tlvs, size_t len)
+int check_destination_up_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_mac = 0;
 	int seen_mdrr = 0;
 	int seen_mdrt = 0;
@@ -1223,10 +1223,10 @@ int check_destination_up_signal(const char* tlvs, size_t len)
 	return ret;
 }
 
-int check_destination_update_signal(const char* tlvs, size_t len)
+int check_destination_update_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_mac = 0;
 	int seen_mdrr = 0;
 	int seen_mdrt = 0;
@@ -1390,10 +1390,10 @@ int check_destination_update_signal(const char* tlvs, size_t len)
 	return ret;
 }
 
-int check_destination_down_signal(const char* tlvs, size_t len)
+int check_destination_down_signal(const uint8_t* tlvs, size_t len)
 {
 	int ret = 1;
-	const char* tlv;
+	const uint8_t* tlv;
 	int seen_mac = 0;
 
 	/* Check for mandatory TLV's */

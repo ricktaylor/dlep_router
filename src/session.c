@@ -19,8 +19,8 @@ Copyright (c) 2014 Airbus DS Limited
 
 static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 {
-	char msg[300];
-	char* tlv;
+	uint8_t msg[300];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -60,8 +60,8 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 
 	/* Write out Peer Type */
 	tlv[0] = DLEP_PEER_TYPE_TLV;
-	strcpy(tlv+2,"dlep_router: Simple example DLEP router");
-	tlv[1] = strlen(tlv+2);
+	strcpy((char*)(tlv+2),"dlep_router: Simple example DLEP router");
+	tlv[1] = strlen((char*)(tlv+2));
 	tlv += tlv[1] + 2;
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
@@ -81,8 +81,8 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 
 static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 {
-	char msg[30];
-	char* tlv;
+	uint8_t msg[30];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -109,8 +109,8 @@ static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 
 static void send_peer_term(int s, unsigned int status)
 {
-	char msg[30];
-	char* tlv;
+	uint8_t msg[30];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -137,8 +137,8 @@ static void send_peer_term(int s, unsigned int status)
 
 static void send_peer_term_ack(int s, unsigned int status)
 {
-	char msg[30];
-	char* tlv;
+	uint8_t msg[30];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -163,10 +163,10 @@ static void send_peer_term_ack(int s, unsigned int status)
 		printf("Failed to send Peer Termination ACK signal: %s\n",strerror(errno));
 }
 
-static void send_destination_up_ack(int s, const char* mac)
+static void send_destination_up_ack(int s, const uint8_t* mac)
 {
-	char msg[30];
-	char* tlv;
+	uint8_t msg[30];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -191,10 +191,10 @@ static void send_destination_up_ack(int s, const char* mac)
 		printf("Failed to send Destination Up ACK signal: %s\n",strerror(errno));
 }
 
-static void send_destination_down_ack(int s, const char* mac, int status)
+static void send_destination_down_ack(int s, const uint8_t* mac, int status)
 {
-	char msg[30];
-	char* tlv;
+	uint8_t msg[30];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -225,7 +225,7 @@ static void send_destination_down_ack(int s, const char* mac, int status)
 		printf("Failed to send Destination Down ACK signal: %s\n",strerror(errno));
 }
 
-static void parse_vendor_extension_tlv(const char* tlv)
+static void parse_vendor_extension_tlv(const uint8_t* tlv)
 {
 	printf("    OUI: ");
 	printfBytes(tlv+3,tlv[2],':');
@@ -240,9 +240,9 @@ static void parse_vendor_extension_tlv(const char* tlv)
 	printf("\n");
 }
 
-static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uint16_t* heartbeat_interval)
+static unsigned int parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, uint16_t* heartbeat_interval)
 {
-	const char* tlv;
+	const uint8_t* tlv;
 	unsigned int status = 0;
 
 	printf("Valid Peer Initialization ACK signal from modem:\n");
@@ -305,8 +305,8 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 
 		case DLEP_OPTIONAL_SIGNALS_TLV:
 			{
-				const char* tlv_type = tlv + 2;
-				const char* end = tlv + tlv[1];
+				const uint8_t* tlv_type = tlv + 2;
+				const uint8_t* end = tlv + tlv[1];
 
 				while (tlv_type < end)
 				{
@@ -330,8 +330,8 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 
 		case DLEP_OPTIONAL_DATA_ITEMS_TLV:
 			{
-				const char* tlv_type = tlv + 2;
-				const char* end = tlv + tlv[1];
+				const uint8_t* tlv_type = tlv + 2;
+				const uint8_t* end = tlv + tlv[1];
 
 				while (tlv_type < end)
 				{
@@ -371,7 +371,7 @@ static unsigned int parse_peer_init_ack_signal(const char* tlvs, size_t len, uin
 	return status;
 }
 
-static void parse_address(const char* tlv)
+static void parse_address(const uint8_t* tlv)
 {
 	char address[INET6_ADDRSTRLEN] = {0};
 
@@ -386,9 +386,9 @@ static void parse_address(const char* tlv)
 		printf("IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+3,address,sizeof(address)));
 }
 
-static void parse_peer_update_signal(const char* tlvs, size_t len)
+static void parse_peer_update_signal(const uint8_t* tlvs, size_t len)
 {
-	const char* tlv;
+	const uint8_t* tlv;
 	unsigned int status = 0;
 
 	printf("Received Peer Update signal from modem:\n");
@@ -448,9 +448,9 @@ static void parse_peer_update_signal(const char* tlvs, size_t len)
 	}
 }
 
-static void parse_destination_up_signal(int s, const char* tlvs, size_t len)
+static void parse_destination_up_signal(int s, const uint8_t* tlvs, size_t len)
 {
-	const char* tlv;
+	const uint8_t* tlv;
 	unsigned int status = 0;
 
 	printf("Received Destination Up signal from modem:\n");
@@ -511,9 +511,9 @@ static void parse_destination_up_signal(int s, const char* tlvs, size_t len)
 	}
 }
 
-static void parse_destination_update_signal(const char* tlvs, size_t len)
+static void parse_destination_update_signal(const uint8_t* tlvs, size_t len)
 {
-	const char* tlv;
+	const uint8_t* tlv;
 	unsigned int status = 0;
 
 	printf("Received Destination Update signal from modem:\n");
@@ -572,7 +572,7 @@ static void parse_destination_update_signal(const char* tlvs, size_t len)
 	}
 }
 
-static int handle_signal(int s, const char* msg, size_t len, uint16_t* modem_heartbeat_interval)
+static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_heartbeat_interval)
 {
 	int ret = 0;
 	if (len < 3)
@@ -728,12 +728,12 @@ static int handle_signal(int s, const char* msg, size_t len, uint16_t* modem_hea
 	return ret;
 }
 
-static ssize_t recv_signal(int s, char** msg)
+static ssize_t recv_signal(int s, uint8_t** msg)
 {
 	ssize_t received = -1;
 
 	/* Make sure we have room for the header */
-	char* new_msg = realloc(*msg,3);
+	uint8_t* new_msg = realloc(*msg,3);
 	if (!new_msg)
 	{
 		int err = errno;
@@ -777,7 +777,7 @@ static ssize_t recv_signal(int s, char** msg)
 	return received;
 }
 
-static void in_session(int s, char* msg, uint16_t modem_heartbeat_interval, uint16_t router_heartbeat_interval)
+static void in_session(int s, uint8_t* msg, uint16_t modem_heartbeat_interval, uint16_t router_heartbeat_interval)
 {
 	struct timespec last_recv_time = {0};
 	struct timespec last_sent_time = {0};
@@ -882,7 +882,7 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 	}
 	else if (send_peer_init_signal(s,router_heartbeat_interval))
 	{
-		char* msg = NULL;
+		uint8_t* msg = NULL;
 		ssize_t received;
 
 		printf("Waiting for Peer Initialization ACK signal\n");

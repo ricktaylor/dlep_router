@@ -18,8 +18,8 @@ Copyright (c) 2014 Airbus DS Limited
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {
 	char str_address[FORMATADDRESS_LEN] = {0};
-	char msg[25];
-	char* tlv;
+	uint8_t msg[25];
+	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
@@ -56,7 +56,7 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	return 1;
 }
 
-static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
+static ssize_t recv_peer_offer(int s, unsigned int secs, uint8_t msg[1500])
 {
 	struct timeval timeout = {0};
 	fd_set readfds;
@@ -95,9 +95,9 @@ static ssize_t recv_peer_offer(int s, unsigned int secs, char msg[1500])
 
 static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t dest_addr_len, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
-	char msg[1500];
+	uint8_t msg[1500];
 	ssize_t len = 0;
-	const char* tlv;
+	const uint8_t* tlv;
 	char peer_address[INET6_ADDRSTRLEN] = {0};
 	uint16_t port = 0;
 
