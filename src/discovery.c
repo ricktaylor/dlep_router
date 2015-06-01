@@ -32,13 +32,13 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	tlv[0] = DLEP_VERSION_TLV;
 	tlv[1] = 4;
 	set_uint16(0,tlv + 2);
-	set_uint16(7,tlv + 4);
+	set_uint16(14,tlv + 4);
 	tlv += tlv[1] + 2;
 
-	/* Heartbeat TLV */
-	tlv[0] = DLEP_HEARTBEAT_INTERVAL_TLV;
-	tlv[1] = 2;
-	set_uint16(DEFAULT_HEARTBEAT_INTERVAL,tlv + 2);
+	/* Write out Peer Type */
+	tlv[0] = DLEP_PEER_TYPE_TLV;
+	strcpy((char*)(tlv+2),PEER_TYPE);
+	tlv[1] = strlen((char*)(tlv+2));
 	tlv += tlv[1] + 2;
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
@@ -127,41 +127,32 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		/* Octet 0 is the TLV type */
 		switch ((enum dlep_tlvs)tlv[0])
 		{
-		case DLEP_PORT_TLV:
-			port = get_uint16(tlv+2);
-			printf("  DLEP Port: %u\n",port);
-			break;
-
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
-			*heartbeat_interval = get_uint16(tlv+2);
-			printf("  Heartbeat Interval: %u\n",*heartbeat_interval);
-			break;
-
-		case DLEP_IPV4_ADDRESS_TLV:
-			modem_address->ss_family = AF_INET;
-			memcpy(&((struct sockaddr_in*)modem_address)->sin_addr,tlv+3,4);
-			*modem_address_length = sizeof(struct sockaddr_in);
-			printf("  IPv4 address: %s\n",inet_ntop(AF_INET,tlv+3,peer_address,sizeof(peer_address)));
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			modem_address->ss_family = AF_INET6;
-			memcpy(&((struct sockaddr_in6*)modem_address)->sin6_addr,tlv+3,16);
-			*modem_address_length = sizeof(struct sockaddr_in6);
-			printf("  IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+3,peer_address,sizeof(peer_address)));
-			break;
-
 		case DLEP_PEER_TYPE_TLV:
 			printf("  Peer Type: %.*s\n",(int)tlv[1],tlv+2);
 			break;
 
-		case DLEP_STATUS_TLV:
-			if (tlv[2] != 0)
-			{
-				printf("Received Peer Offer signal has status %u, not connecting\n",tlv[2]);
-				return 0;
-			}
-			printf("  Status: 0\n");
+		case DLEP_IPV4_CONN_POINT_TLV:
+			modem_address->ss_family = AF_INET;
+			memcpy(&((struct sockaddr_in*)modem_address)->sin_addr,tlv+2,4);
+			*modem_address_length = sizeof(struct sockaddr_in);
+			printf("  IPv4 address: %s\n",inet_ntop(AF_INET,tlv+2,peer_address,sizeof(peer_address)));
+			if (tlv[1] == 6)
+				port = get_uint16(tlv+6);
+			else
+				port = DLEP_WELL_KNOWN_TCP_PORT;
+			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
+			break;
+
+		case DLEP_IPV6_CONN_POINT_TLV:
+			modem_address->ss_family = AF_INET6;
+			memcpy(&((struct sockaddr_in6*)modem_address)->sin6_addr,tlv+2,16);
+			*modem_address_length = sizeof(struct sockaddr_in6);
+			printf("  IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+2,peer_address,sizeof(peer_address)));
+			if (tlv[1] == 18)
+				port = get_uint16(tlv+18);
+			else
+				port = DLEP_WELL_KNOWN_TCP_PORT;
+			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
 			break;
 
 		default:

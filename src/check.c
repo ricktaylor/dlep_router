@@ -9,41 +9,39 @@ Copyright (c) 2014 Airbus DS Limited
 
 #include "./dlep_iana.h"
 
-static int check_length(const uint8_t* tlv, unsigned int len, const char* name)
+static enum dlep_status_code check_length(const uint8_t* tlv, unsigned int len, const char* name)
 {
 	if (tlv[1] != len)
 	{
 		printf("Incorrect length in %s TLV: %u, expected %u\n",name,(unsigned int)tlv[1],len);
-		return 0;
+		return DLEP_SC_INVALID_DATA;
 	}
-	return 1;
+	return DLEP_SC_SUCCESS;
 }
 
-static int check_port(const uint8_t* tlv)
+static enum dlep_status_code check_version(const uint8_t* tlv)
 {
-	return check_length(tlv,2,"DLEP Port");
-}
-
-static int check_version(const uint8_t* tlv)
-{
-	if (!check_length(tlv,4,"DLEP Version"))
-		return 0;
-	else
+	enum dlep_status_code sc = check_length(tlv,4,"DLEP Version");
+	if (sc == DLEP_SC_SUCCESS)
 	{
 		uint16_t major = get_uint16(tlv+2);
 		uint16_t minor = get_uint16(tlv+4);
 
-		if (major != 0 || minor != 7)
+		if (major == 1 || minor == 0)
 		{
-			printf("Only DLEP version 0.7 supported, discovered %u.%u\n",major,minor);
-			return 0;
+			printf("DLEP version 1.0 advertised, but this version does not know the IANA registered numbers, use 0.14\n");
+			sc = DLEP_SC_INVALID_DATA;
 		}
-
-		return 1;
+		else if (major != 0 || minor != 14)
+		{
+			printf("Only DLEP version 0.14 supported, discovered %u.%u\n",major,minor);
+			sc = DLEP_SC_INVALID_DATA;
+		}
 	}
+	return sc;
 }
 
-static int check_peer_type(const uint8_t* tlv)
+static enum dlep_status_code check_peer_type(const uint8_t* tlv)
 {
 	size_t i = 0;
 	for (; i < tlv[1]; ++i)
@@ -51,356 +49,271 @@ static int check_peer_type(const uint8_t* tlv)
 		/* Check for NUL */
 		if (tlv[i + 2] == 0)
 		{
-			printf("Invalid NUL character in peer type string\n");
-			return 0;
+			printf("Warning: Suspicious NUL character in peer type string\n");
 		}
 
 		/* TODO: One should check for valid UTF8 characters here */
 	}
 
-	return 1;
+	return DLEP_SC_SUCCESS;
 }
 
-static int check_heartbeat_interval(const uint8_t* tlv)
+static enum dlep_status_code check_heartbeat_interval(const uint8_t* tlv)
 {
 	return check_length(tlv,2,"Heartbeat Interval");
 }
 
-static int check_ipv4_address(const uint8_t* tlv)
+static enum dlep_status_code check_ipv4_connection_point(const uint8_t* tlv)
 {
-	if (!check_length(tlv,5,"IPv4 Address"))
-		return 0;
-
-	if (tlv[2] != 1 && tlv[2] != 2)
+	if (tlv[1] != 4 && tlv[1] != 6)
 	{
-		printf("Incorrect add/drop indicator in IPv4 Address TLV: %u, expected 1 or 2\n",(unsigned int)tlv[2]);
-		return 0;
+		printf("Incorrect length in IPv4 Connection Point TLV: %u, expected 4 or 6\n",(unsigned int)tlv[1]);
+		return DLEP_SC_INVALID_DATA;
 	}
-
-	return 1;
+	return DLEP_SC_SUCCESS;
 }
 
-static int check_ipv6_address(const uint8_t* tlv)
+static enum dlep_status_code check_ipv6_connection_point(const uint8_t* tlv)
 {
-	if (!check_length(tlv,17,"IPv6 Address"))
-		return 0;
-
-	if (tlv[2] != 1 && tlv[2] != 2)
+	if (tlv[1] != 16 && tlv[1] != 18)
 	{
-		printf("Incorrect add/drop indicator in IPv6 Address TLV: %u, expected 1 or 2\n",(unsigned int)tlv[2]);
-		return 0;
+		printf("Incorrect length in IPv6 Connection Point TLV: %u, expected 16 or 18\n",(unsigned int)tlv[1]);
+		return DLEP_SC_INVALID_DATA;
 	}
-
-	return 1;
+	return DLEP_SC_SUCCESS;
 }
 
-static int check_mdrr(const uint8_t* tlv)
+static enum dlep_status_code check_ipv4_address(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,5,"IPv4 Address");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[2] != 1 && tlv[2] != 2)
+		{
+			printf("Incorrect add/drop indicator in IPv4 Address TLV: %u, expected 1 or 2\n",(unsigned int)tlv[2]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
+
+static enum dlep_status_code check_ipv6_address(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,17,"IPv6 Address");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[2] != 1 && tlv[2] != 2)
+		{
+			printf("Incorrect add/drop indicator in IPv6 Address TLV: %u, expected 1 or 2\n",(unsigned int)tlv[2]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
+
+static enum dlep_status_code check_ipv4_attached_subnet(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,5,"IPv4 Attached Subnet");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[6] < 1 || tlv[6] > 32)
+		{
+			printf("Incorrect prefix in IPv4 Address TLV: %u, expected 1-32\n",(unsigned int)tlv[6]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
+
+static enum dlep_status_code check_ipv6_attached_subnet(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,17,"IPv6 Attached Subnet");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[18] > 128)
+		{
+			printf("Incorrect prefix in IPv4 Address TLV: %u, expected 1-128\n",(unsigned int)tlv[18]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
+
+static enum dlep_status_code check_mdrr(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Maximum Data Rate (Receive)");
 }
 
-static int check_mdrt(const uint8_t* tlv)
+static enum dlep_status_code check_mdrt(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Maximum Data Rate (Transmit)");
 }
 
-static int check_cdrr(const uint8_t* tlv)
+static enum dlep_status_code check_cdrr(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Current Data Rate (Receive)");
 }
 
-static int check_cdrt(const uint8_t* tlv)
+static enum dlep_status_code check_cdrt(const uint8_t* tlv)
 {
 	return check_length(tlv,8,"Current Data Rate (Transmit)");
 }
 
-static int check_latency(const uint8_t* tlv)
+static enum dlep_status_code check_latency(const uint8_t* tlv)
 {
 	return check_length(tlv,4,"Latency");
 }
 
-static int check_resr(const uint8_t* tlv)
+static enum dlep_status_code check_resr(const uint8_t* tlv)
 {
-	if (!check_length(tlv,1,"Resources (Receive)"))
-		return 0;
-
-	if (tlv[1] > 100)
+	enum dlep_status_code sc = check_length(tlv,1,"Resources (Receive)");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		printf("Incorrect value in Resources (Receive) TLV: %u, expected 0 to 100%%\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int check_rest(const uint8_t* tlv)
-{
-	if (!check_length(tlv,1,"Resources (Transmit)"))
-		return 0;
-
-	if (tlv[1] > 100)
-	{
-		printf("Incorrect value in Resources (Transmit) TLV: %u, expected 0 to 100%%\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int check_rlqr(const uint8_t* tlv)
-{
-	if (!check_length(tlv,1,"Relative Link Quality (Receive)"))
-		return 0;
-
-	if (tlv[1] > 100)
-	{
-		printf("Incorrect value in Relative Link Quality (Receive) TLV: %u, expected 1 to 100\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int check_rlqt(const uint8_t* tlv)
-{
-	if (!check_length(tlv,1,"Relative Link Quality (Transmit)"))
-		return 0;
-
-	if (tlv[1] > 100)
-	{
-		printf("Incorrect value in Relative Link Quality (Transmit) TLV: %u, expected 1 to 100\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	return 1;
-}
-
-static int check_vendor_extension(const uint8_t* tlv)
-{
-	if (tlv[1] < 4)
-	{
-		printf("Incorrect length in Vendor Extension TLV: %u, expected > 4\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	/* Octet 2 is the OUI length, IEEE OUIs are 24-36 bits */
-	if (tlv[2] < 3 || tlv[2] > 5)
-	{
-		printf("Unlikely OUI octet length in Vendor Extension TLV: %u, expected between 3 and 5\n",(unsigned int)tlv[1]);
-		return 0;
-	}
-
-	/* Octet 7 is probably the Length of the payload TLV */
-	if (tlv[7] != tlv[1] - 6 || tlv[7] <= 2)
-	{
-		printf("Vendor Extension TLV payload does not appear to be a TLV\n");
-	}
-
-	return 1;
-}
-
-static int check_status(const uint8_t* tlv)
-{
-	return check_length(tlv,1,"Status TLV");
-}
-
-static int check_optional_signals(const uint8_t* tlv)
-{
-	int ret = 1;
-	const uint8_t* end = tlv + tlv[1];
-	tlv += 2;
-
-	while (tlv < end)
-	{
-		switch ((enum dlep_signals)*tlv++)
+		if (tlv[1] > 100)
 		{
-		/* Mandatory signals */
-		case DLEP_PEER_DISCOVERY:
-			printf("Unexpected mandatory Peer Discovery signal in Optional Signals Supported TLV\n");
-			break;
+			printf("Incorrect value in Resources (Receive) TLV: %u, expected 0 to 100%%\n",(unsigned int)tlv[1]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
 
-		case DLEP_PEER_OFFER:
-			printf("Unexpected mandatory Peer Offer signal in Optional Signals Supported TLV\n");
-			break;
+static enum dlep_status_code check_rest(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,1,"Resources (Transmit)");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[1] > 100)
+		{
+			printf("Incorrect value in Resources (Transmit) TLV: %u, expected 0 to 100%%\n",(unsigned int)tlv[1]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
 
-		case DLEP_PEER_INITIALIZATION:
-			printf("Unexpected mandatory Peer Initialization signal in Optional Signals Supported TLV\n");
-			break;
+static enum dlep_status_code check_rlqr(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,1,"Relative Link Quality (Receive)");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[1] > 100)
+		{
+			printf("Incorrect value in Relative Link Quality (Receive) TLV: %u, expected 1 to 100\n",(unsigned int)tlv[1]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
 
-		case DLEP_PEER_INITIALIZATION_ACK:
-			printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
-			break;
+static enum dlep_status_code check_rlqt(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,1,"Relative Link Quality (Transmit)");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		if (tlv[1] > 100)
+		{
+			printf("Incorrect value in Relative Link Quality (Transmit) TLV: %u, expected 1 to 100\n",(unsigned int)tlv[1]);
+			sc = DLEP_SC_INVALID_DATA;
+		}
+	}
+	return sc;
+}
 
-		case DLEP_PEER_TERMINATION:
-			printf("Unexpected mandatory Peer Termination signal in Optional Signals Supported TLV\n");
-			break;
+static enum dlep_status_code check_extensions_supported(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = DLEP_SC_SUCCESS;
+	if (tlv[1] == 0)
+	{
+		printf("Warning: Empty DLEP Extensions Supported TLV.\n");
+	}
+	else
+	{
+		size_t i = 0;
+		for (; i < tlv[1]; ++i)
+		{
+			switch (tlv[2 + i])
+			{
+			default:
+				printf("Unknown DLEP extension %u\n",tlv[2 + i]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+	}
+	return sc;
+}
 
-		case DLEP_PEER_TERMINATION_ACK:
-			printf("Unexpected mandatory Peer Initialization Ack signal in Optional Signals Supported TLV\n");
-			break;
+static enum dlep_status_code check_experimental_definition(const uint8_t* tlv)
+{
+	if (tlv[1] == 0)
+	{
+		printf("Warning: Empty DLEP Experimental Definition TLV.\n");
+	}
+	else
+	{
+		size_t i = 0;
+		for (; i < tlv[1]; ++i)
+		{
+			/* Check for NUL */
+			if (tlv[2 + i] == 0)
+			{
+				printf("Warning: Suspicious NUL character in experimental definition type string\n");
+			}
 
-		case DLEP_DESTINATION_UP:
-			printf("Unexpected mandatory Destination Up signal in Optional Signals Supported TLV\n");
-			break;
+			/* TODO: One should check for valid UTF8 characters here */
+		}
+	}
+	return DLEP_SC_SUCCESS;
+}
 
-		case DLEP_DESTINATION_UP_ACK:
-			printf("Unexpected mandatory Destination Up Ack signal in Optional Signals Supported TLV\n");
-			break;
-
-		case DLEP_DESTINATION_DOWN:
-			printf("Unexpected mandatory Destination Down signal in Optional Signals Supported TLV\n");
-			break;
-
-		case DLEP_DESTINATION_DOWN_ACK:
-			printf("Unexpected mandatory Destination Down Ack signal in Optional Signals Supported TLV\n");
-			break;
-
-		case DLEP_DESTINATION_UPDATE:
-			printf("Unexpected mandatory Destination Update signal in Optional Signals Supported TLV\n");
-			break;
-
-		case DLEP_HEARTBEAT:
-			printf("Unexpected mandatory Heartbeat signal in Optional Signals Supported TLV\n");
-			break;
-
-		/* Valid optional signals */
-		case DLEP_PEER_UPDATE:
-		case DLEP_PEER_UPDATE_ACK:
-		case DLEP_LINK_CHARACTERISTICS_ACK:
-			break;
-
-		case DLEP_LINK_CHARACTERISTICS_REQUEST:
-			printf("Unexpected Link Characteristics Request signal in Optional Signals Supported TLV\n");
+static enum dlep_status_code check_status(const uint8_t* tlv)
+{
+	enum dlep_status_code sc = check_length(tlv,1,"Status TLV");
+	if (sc == DLEP_SC_SUCCESS)
+	{
+		switch (tlv[2])
+		{
+		case DLEP_SC_SUCCESS:
+		case DLEP_SC_UNKNOWN_SIGNAL:
+		case DLEP_SC_INVALID_DATA:
+		case DLEP_SC_UNEXPECTED_SIGNAL:
+		case DLEP_SC_REQUEST_DENIED:
+		case DLEP_SC_TIMEDOUT:
+		case DLEP_SC_INVALID_DEST:
 			break;
 
 		default:
-			printf("Unrecognized signal %u in Optional Signals Supported TLV\n",*tlv);
-			ret = 0;
+			printf("Unknown Status Code in Status TLV.\n");
+			sc = DLEP_SC_INVALID_DATA;
 			break;
 		}
 	}
-
-	return ret;
+	return sc;
 }
 
-static int check_optional_data_items(const uint8_t* tlv)
-{
-	int ret = 1;
-	const uint8_t* end = tlv + tlv[1];
-	tlv += 2;
-
-	while (tlv < end)
-	{
-		switch ((enum dlep_tlvs)*tlv++)
-		{
-		/* Mandatory TLVs */
-		case DLEP_PORT_TLV:
-			printf("Unexpected mandatory DLEP Port TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_MAC_ADDRESS_TLV:
-			printf("Unexpected mandatory MAC Address TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_MDRR_TLV:
-			printf("Unexpected mandatory Maximum Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_MDRT_TLV:
-			printf("Unexpected mandatory Maximum Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_CDRR_TLV:
-			printf("Unexpected mandatory Current Data Rate (Receive) TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_CDRT_TLV:
-			printf("Unexpected mandatory Current Data Rate (Transmit) TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_LATENCY_TLV:
-			printf("Unexpected mandatory Latency TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_STATUS_TLV:
-			printf("Unexpected mandatory Status TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
-			printf("Unexpected mandatory Heartbeat Interval TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_OPTIONAL_SIGNALS_TLV:
-			printf("Unexpected mandatory Optional Signals Supported TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_OPTIONAL_DATA_ITEMS_TLV:
-			printf("Unexpected mandatory Optional Data Items Supported TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		/* Optional, but non-Data Item TLVs */
-		case DLEP_PEER_TYPE_TLV:
-			printf("Unexpected Peer Type TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_IPV4_ADDRESS_TLV:
-			printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			printf("Unexpected IPv4 Address TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_LINK_CHAR_ACK_TIMER_TLV:
-			printf("Unexpected Link Characteristics ACK Timer TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_CREDIT_WIN_STATUS_TLV:
-			printf("Unexpected Credit Window Status TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_CREDIT_GRANT_REQ_TLV:
-			printf("Unexpected Credit Grant Request TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		case DLEP_CREDIT_REQUEST_TLV:
-			printf("Unexpected Credit Request TLV in Optional Data Items Supported TLV\n");
-			break;
-
-		/* Optional and reportable */
-		case DLEP_RESR_TLV:
-		case DLEP_REST_TLV:
-		case DLEP_RLQR_TLV:
-		case DLEP_RLQT_TLV:
-		case DLEP_VENDOR_EXTENSION_TLV:
-			break;
-
-		default:
-			printf("Unrecognized TLV %u in Optional Data Items Supported TLV\n",*tlv);
-			ret = 0;
-			break;
-		}
-	}
-
-	return ret;
-}
-
-static int check_mac_address(const uint8_t* tlv)
+static enum dlep_status_code check_mac_address(const uint8_t* tlv)
 {
 	return check_length(tlv,6,"MAC Address TLV");
 }
 
-static int check_signal_length(const uint8_t* msg, size_t len, unsigned int id, const char* name)
+static enum dlep_status_code check_lcr_timer(const uint8_t* tlv)
 {
+	return check_length(tlv,1,"Link Characteristics ACK Timer TLV");
+}
+
+static enum dlep_status_code check_signal(const uint8_t* msg, size_t len, unsigned int id, const char* name)
+{
+	enum dlep_status_code sc = DLEP_SC_SUCCESS;
 	if (len < 3)
 	{
 		printf("Packet too short for %s signal: %u bytes\n",name,(unsigned int)len);
-		return 0;
+		sc = DLEP_SC_INVALID_DATA;
 	}
 	else if (msg[0] != id)
 	{
 		printf("%s signal expected, but signal %u received\n",name,msg[0]);
-		return 0;
+		sc = DLEP_SC_UNEXPECTED_SIGNAL;
 	}
 	else
 	{
@@ -408,1024 +321,1215 @@ static int check_signal_length(const uint8_t* msg, size_t len, unsigned int id, 
 		if (reported_len != len)
 		{
 			printf("%s signal length %u does not match received packet length %u\n",name,reported_len,(unsigned int)len);
-			return 0;
+			sc = DLEP_SC_INVALID_DATA;
 		}
 	}
-
-	return 1;
+	return sc;
 }
 
-int check_peer_offer_signal(const uint8_t* msg, size_t len)
+static void printf_unexpected_tlv(const char* name, uint8_t tlv)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_heartbeat = 0;
-	int seen_ip_address = 0;
-	int seen_port = 0;
-	int seen_peer_type = 0;
-	int seen_status = 0;
-	int seen_version = 0;
+	const char* tlv_text = NULL;
+	switch (tlv)
+	{
+	case DLEP_VERSION_TLV:
+		tlv_text = "DLEP Version";
+		break;
 
+	case DLEP_STATUS_TLV:
+		tlv_text = "Status";
+		break;
+
+	case DLEP_IPV4_CONN_POINT_TLV:
+		tlv_text = "IPv4 Connection Point";
+		break;
+
+	case DLEP_IPV6_CONN_POINT_TLV:
+		tlv_text = "IPv6 Connection Point";
+		break;
+
+	case DLEP_PEER_TYPE_TLV:
+		tlv_text = "Peer Type";
+		break;
+
+	case DLEP_PEER_HEARTBEAT_INTERVAL_TLV:
+		tlv_text = "Heartbeat Interval";
+		break;
+
+	case DLEP_EXTS_SUPP_TLV:
+		tlv_text = "Extensions Supported";
+		break;
+
+	case DLEP_EXP_DEFNS_TLV:
+		tlv_text = "Experimental Definition";
+		break;
+
+	case DLEP_MAC_ADDRESS_TLV:
+		tlv_text = "MAC Address";
+		break;
+
+	case DLEP_IPV4_ADDRESS_TLV:
+		tlv_text = "IPv4 Address";
+		break;
+
+	case DLEP_IPV6_ADDRESS_TLV:
+		tlv_text = "IPv6 Address";
+		break;
+
+	case DLEP_IPV4_ATT_SUBNET_TLV:
+		tlv_text = "IPv4 Attached Subnet";
+		break;
+
+	case DLEP_IPV6_ATT_SUBNET_TLV:
+		tlv_text = "IPv6 Attached Subnet";
+		break;
+
+	case DLEP_MDRR_TLV:
+		tlv_text = "Maximum Data Rate (Receive) (MDRR)";
+		break;
+
+	case DLEP_MDRT_TLV:
+		tlv_text = "Maximum Data Rate (Transmit) (MDRT)";
+		break;
+
+	case DLEP_CDRR_TLV:
+		tlv_text = "Current Data Rate (Receive) (CDRR)";
+		break;
+
+	case DLEP_CDRT_TLV:
+		tlv_text = "Current Data Rate (Transmit) (CDRT)";
+		break;
+
+	case DLEP_LATENCY_TLV:
+		tlv_text = "Latency";
+		break;
+
+	case DLEP_RESR_TLV:
+		tlv_text = "Resources (Receive) (RESR)";
+		break;
+
+	case DLEP_REST_TLV:
+		tlv_text = "Resources (Transmit) (REST)";
+		break;
+
+	case DLEP_RLQR_TLV:
+		tlv_text = "Relative Link Quality (Receive) (RLQR)";
+		break;
+
+	case DLEP_RLQT_TLV:
+		tlv_text = "Relative Link Quality (Transmit) (RLQT)";
+		break;
+
+	case DLEP_LINK_CHAR_ACK_TIMER_TLV:
+		tlv_text = "Link Characteristics ACK Timer";
+		break;
+	}
+
+	if (tlv_text)
+		printf("Unexpected %s TLV in %s signal\n",tlv_text,name);
+	else
+		printf("Unexpected TLV %u in %s signal\n",(unsigned int)tlv,name);
+}
+
+enum dlep_status_code check_peer_offer_signal(const uint8_t* msg, size_t len)
+{
 	/* Validate the signal */
-	if (!check_signal_length(msg,len,DLEP_PEER_OFFER,"Peer Offer"))
-		return 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_OFFER,"Peer Offer");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		int seen_ip_conn_pt = 0;
+		int seen_peer_type = 0;
+		int seen_version = 0;
+
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_VERSION_TLV:
-			if (seen_version)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple DLEP version TLVs in Peer Offer signal\n");
-				ret = 0;
-			}
-			else if (!check_version(tlv))
-				ret = 0;
-			else
-				seen_version = 1;
-			break;
+			case DLEP_VERSION_TLV:
+				if (seen_version)
+				{
+					printf("Multiple DLEP version TLVs in Peer Offer signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_version(tlv);
+					seen_version = 1;
+				}
+				break;
 
-		case DLEP_PORT_TLV:
-			if (seen_port)
+			case DLEP_PEER_TYPE_TLV:
+				if (seen_peer_type)
+				{
+					printf("Multiple Peer Type TLVs in Peer Offer signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_peer_type(tlv);
+					seen_peer_type = 1;
+				}
+				break;
+
+			case DLEP_IPV4_CONN_POINT_TLV:
+				sc = check_ipv4_connection_point(tlv);
+				seen_ip_conn_pt = 1;
+				break;
+
+			case DLEP_IPV6_CONN_POINT_TLV:
+				sc = check_ipv6_connection_point(tlv);
+				seen_ip_conn_pt = 1;
+				break;
+
+			default:
+				printf_unexpected_tlv("Peer Offer",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (tlv != msg + len)
 			{
-				printf("Multiple DLEP port TLVs in Peer Offer signal\n");
-				ret = 0;
+				printf("Signal length does not equal sum of TLV lengths in Peer Offer signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_port(tlv))
-				ret = 0;
-			else
-				seen_port = 1;
-			break;
-
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
-			if (seen_heartbeat)
+			else if (!seen_version)
 			{
-				printf("Multiple Heartbeat Interval TLVs in Peer Offer signal\n");
-				ret = 0;
+				printf("Missing mandatory DLEP Version TLV in Peer Offer signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_heartbeat_interval(tlv))
-				ret = 0;
-			else
-				seen_heartbeat = 1;
-			break;
-
-		case DLEP_IPV4_ADDRESS_TLV:
-			if (!check_ipv4_address(tlv))
-				ret = 0;
-			else if (tlv[2] != 1)
+			else if (!seen_ip_conn_pt)
 			{
-				printf("IPv4 address TLV in Peer Offer signal marks address as dropped!\n");
-				ret = 0;
+				printf("Missing IPv4 or IPv6 connection point TLV in Peer Offer signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else
-				seen_ip_address = 1;
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			if (!check_ipv6_address(tlv))
-				ret = 0;
-			else if (tlv[2] != 1)
-			{
-				printf("IPv6 address TLV in Peer Offer signal marks address as dropped!\n");
-				ret = 0;
-			}
-			else
-				seen_ip_address = 1;
-			break;
-
-		case DLEP_PEER_TYPE_TLV:
-			if (seen_peer_type)
-			{
-				printf("Multiple Peer Type TLVs in Peer Offer signal\n");
-				ret = 0;
-			}
-			else if (!check_peer_type(tlv))
-				ret = 0;
-			else
-				seen_peer_type = 1;
-			break;
-
-		case DLEP_STATUS_TLV:
-			if (seen_status)
-			{
-				printf("Multiple Status TLVs in Peer Offer signal\n");
-				ret = 0;
-			}
-			else if (!check_status(tlv))
-				ret = 0;
-			else
-				seen_status = 1;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Peer Offer signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	if (!seen_ip_address)
-	{
-		printf("Missing IPv4 or IPv6 address TLV in Peer Offer signal\n");
-		ret = 0;
-	}
-
-	if (!seen_port)
-	{
-		printf("Missing mandatory DLEP Port TLV in Peer Offer signal\n");
-		ret = 0;
-	}
-
-	if (!seen_version)
-	{
-		printf("Missing mandatory DLEP Version TLV in Peer Offer signal\n");
-		ret = 0;
-	}
-
-	if (!seen_heartbeat)
-	{
-		printf("Missing mandatory Heartbeat Interval TLV in Peer Offer signal\n");
-		ret = 0;
-	}
-
-	if (tlv != msg + len)
-	{
-		printf("Signal length does not equal sum of TLV lengths in Peer Offer signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_peer_init_ack_signal(const uint8_t* msg, size_t len)
+enum dlep_status_code check_peer_init_ack_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_heartbeat = 0;
-	int seen_opt_signals = 0;
-	int seen_opt_data_items = 0;
-	int seen_mdrr = 0;
-	int seen_mdrt = 0;
-	int seen_cdrr = 0;
-	int seen_cdrt = 0;
-	int seen_latency = 0;
-	int seen_resr = 0;
-	int seen_rest = 0;
-	int seen_rlqr = 0;
-	int seen_rlqt = 0;
-	int seen_status = 0;
-	int seen_peer_type = 0;
-	int seen_version = 0;
-
 	/* Validate the signal */
-	if (!check_signal_length(msg,len,DLEP_PEER_INITIALIZATION_ACK,"Peer Initialization ACK"))
-		return 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_INIT_ACK,"Peer Initialization ACK");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		int seen_heartbeat = 0;
+		int seen_mdrr = 0;
+		int seen_mdrt = 0;
+		int seen_cdrr = 0;
+		int seen_cdrt = 0;
+		int seen_latency = 0;
+		int seen_resr = 0;
+		int seen_rest = 0;
+		int seen_rlqr = 0;
+		int seen_rlqt = 0;
+		int seen_status = 0;
+		int seen_peer_type = 0;
+		int seen_version = 0;
+		int seen_exts_supported = 0;
+
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_VERSION_TLV:
-			if (seen_version)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple DLEP version TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_version(tlv))
-				ret = 0;
-			else
-				seen_version = 1;
-			break;
+			case DLEP_VERSION_TLV:
+				if (seen_version)
+				{
+					printf("Multiple DLEP version TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_version(tlv);
+					seen_version = 1;
+				}
+				break;
 
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
-			if (seen_heartbeat)
+			case DLEP_PEER_HEARTBEAT_INTERVAL_TLV:
+				if (seen_heartbeat)
+				{
+					printf("Multiple Heartbeat Interval TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_heartbeat_interval(tlv);
+					seen_heartbeat = 1;
+				}
+				break;
+
+			case DLEP_MDRR_TLV:
+				if (seen_mdrr)
+				{
+					printf("Multiple Maximum Data Rate (Receive) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrr(tlv);
+					seen_mdrr = 1;
+				}
+				break;
+
+			case DLEP_MDRT_TLV:
+				if (seen_mdrt)
+				{
+					printf("Multiple Maximum Data Rate (Transmit) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrt(tlv);
+					seen_mdrt = 1;
+				}
+				break;
+
+			case DLEP_CDRR_TLV:
+				if (seen_cdrr)
+				{
+					printf("Multiple Current Data Rate (Receive) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrr(tlv);
+					seen_cdrr = 1;
+				}
+				break;
+
+			case DLEP_CDRT_TLV:
+				if (seen_cdrt)
+				{
+					printf("Multiple Current Data Rate (Transmit) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrt(tlv);
+					seen_cdrt = 1;
+				}
+				break;
+
+			case DLEP_LATENCY_TLV:
+				if (seen_latency)
+				{
+					printf("Multiple Latency TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_latency(tlv);
+					seen_latency = 1;
+				}
+				break;
+
+			case DLEP_RESR_TLV:
+				if (seen_resr)
+				{
+					printf("Multiple Resources (Receive) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_resr(tlv);
+					seen_resr = 1;
+				}
+				break;
+
+			case DLEP_REST_TLV:
+				if (seen_rest)
+				{
+					printf("Multiple Resources (Transmit) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rest(tlv);
+					seen_rest = 1;
+				}
+				break;
+
+			case DLEP_RLQR_TLV:
+				if (seen_rlqr)
+				{
+					printf("Multiple Relative Link Quality (Receive) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqr(tlv);
+					seen_rlqr = 1;
+				}
+				break;
+
+			case DLEP_RLQT_TLV:
+				if (seen_rlqt)
+				{
+					printf("Multiple Relative Link Quality (Transmit) TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqt(tlv);
+					seen_rlqt = 1;
+				}
+				break;
+
+			case DLEP_STATUS_TLV:
+				if (seen_status)
+				{
+					printf("Multiple Status TLVs in Peer Offer signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_status(tlv);
+					seen_status = 1;
+				}
+				break;
+
+			case DLEP_PEER_TYPE_TLV:
+				if (seen_peer_type)
+				{
+					printf("Multiple Peer Type TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_peer_type(tlv);
+					seen_peer_type = 1;
+				}
+				break;
+
+			case DLEP_EXTS_SUPP_TLV:
+				if (seen_exts_supported)
+				{
+					printf("Multiple Extensions Supported TLVs in Peer Initialization ACK signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_extensions_supported(tlv);
+					seen_exts_supported = 1;
+				}
+				break;
+
+			case DLEP_EXP_DEFNS_TLV:
+				sc = check_experimental_definition(tlv);
+				break;
+
+			default:
+				printf_unexpected_tlv("Peer Initialization ACK",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (tlv != msg + len)
 			{
-				printf("Multiple Heartbeat Interval TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Signal length does not equal sum of TLV lengths in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_heartbeat_interval(tlv))
-				ret = 0;
-			else
-				seen_heartbeat = 1;
-			break;
-
-		case DLEP_MDRR_TLV:
-			if (seen_mdrr)
+			else if (!seen_version)
 			{
-				printf("Multiple Maximum Data Rate (Receive) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory DLEP Version TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_mdrr(tlv))
-				ret = 0;
-			else
-				seen_mdrr = 1;
-			break;
-
-		case DLEP_MDRT_TLV:
-			if (seen_mdrt)
+			else if (!seen_heartbeat)
 			{
-				printf("Multiple Maximum Data Rate (Transmit) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Heartbeat Interval TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_mdrt(tlv))
-				ret = 0;
-			else
-				seen_mdrt = 1;
-			break;
-
-		case DLEP_CDRR_TLV:
-			if (seen_cdrr)
+			else if (!seen_mdrr)
 			{
-				printf("Multiple Current Data Rate (Receive) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Maximum Data Rate (Receive) TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_cdrr(tlv))
-				ret = 0;
-			else
-				seen_cdrr = 1;
-			break;
-
-		case DLEP_CDRT_TLV:
-			if (seen_cdrt)
+			else if (!seen_mdrt)
 			{
-				printf("Multiple Current Data Rate (Transmit) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Maximum Data Rate (Transmit) TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_cdrt(tlv))
-				ret = 0;
-			else
-				seen_cdrt = 1;
-			break;
-
-		case DLEP_LATENCY_TLV:
-			if (seen_latency)
+			else if (!seen_cdrr)
 			{
-				printf("Multiple Latency TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Current Data Rate (Receive) TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_latency(tlv))
-				ret = 0;
-			else
-				seen_latency = 1;
-			break;
-
-		case DLEP_RESR_TLV:
-			if (seen_resr)
+			else if (!seen_cdrt)
 			{
-				printf("Multiple Resources (Receive) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Current Data Rate (Transmit) TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_resr(tlv))
-				ret = 0;
-			else
-				seen_resr = 1;
-			break;
-
-		case DLEP_REST_TLV:
-			if (seen_rest)
+			else if (!seen_latency)
 			{
-				printf("Multiple Resources (Transmit) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
+				printf("Missing mandatory Latency TLV in Peer Initialization ACK signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_rest(tlv))
-				ret = 0;
-			else
-				seen_rest = 1;
-			break;
-
-		case DLEP_RLQR_TLV:
-			if (seen_rlqr)
-			{
-				printf("Multiple Relative Link Quality (Receive) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqr(tlv))
-				ret = 0;
-			else
-				seen_rlqr = 1;
-			break;
-
-		case DLEP_RLQT_TLV:
-			if (seen_rlqt)
-			{
-				printf("Multiple Relative Link Quality (Transmit) TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqt(tlv))
-				ret = 0;
-			else
-				seen_rlqt = 1;
-			break;
-
-		case DLEP_OPTIONAL_SIGNALS_TLV:
-			if (seen_opt_signals)
-			{
-				printf("Multiple Optional Signals Supported TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_optional_signals(tlv))
-				ret = 0;
-			else
-				seen_opt_signals = 1;
-			break;
-
-		case DLEP_OPTIONAL_DATA_ITEMS_TLV:
-			if (seen_opt_data_items)
-			{
-				printf("Multiple Optional Data Items Supported TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_optional_data_items(tlv))
-				ret = 0;
-			else
-				seen_opt_data_items = 1;
-			break;
-
-		case DLEP_STATUS_TLV:
-			if (seen_status)
-			{
-				printf("Multiple Status TLVs in Peer Offer signal\n");
-				ret = 0;
-			}
-			else if (!check_status(tlv))
-				ret = 0;
-			else
-				seen_status = 1;
-			break;
-
-		case DLEP_PEER_TYPE_TLV:
-			if (seen_peer_type)
-			{
-				printf("Multiple Peer Type TLVs in Peer Initialization ACK signal\n");
-				ret = 0;
-			}
-			else if (!check_peer_type(tlv))
-				ret = 0;
-			else
-				seen_peer_type = 1;
-			break;
-
-		case DLEP_VENDOR_EXTENSION_TLV:
-			/* TODO: One should check for duplicates here */
-			if (!check_vendor_extension(tlv))
-				ret = 0;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Peer Initialization ACK signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	if (!seen_heartbeat)
-	{
-		printf("Missing mandatory Heartbeat Interval TLV in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	if (!seen_status)
-	{
-		printf("Missing mandatory Status TLV in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	if (!seen_version)
-	{
-		printf("Missing mandatory DLEP Version TLV in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	if (!seen_opt_signals)
-	{
-		printf("Missing mandatory Optional Signals Supported TLV in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	if (!seen_opt_data_items)
-	{
-		printf("Missing mandatory Optional data Items Supported TLV in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	if (tlv != msg + len)
-	{
-		printf("Signal length does not equal sum of TLV lengths in Peer Initialization ACK signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_heartbeat_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_heartbeat_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_heartbeat = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_HEARTBEAT,"Peer Heartbeat");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
-			if (seen_heartbeat)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple Heartbeat Interval TLVs in Heartbeat signal\n");
-				ret = 0;
+			default:
+				printf_unexpected_tlv("Peer Heartbeat",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
 			}
-			else if (!check_heartbeat_interval(tlv))
-				ret = 0;
-			else
-				seen_heartbeat = 1;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Heartbeat signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	if (!seen_heartbeat)
-	{
-		printf("Missing mandatory Heartbeat Interval TLV in Heartbeat signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_peer_term_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_peer_term_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_status = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_TERM,"Peer Termination");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
-		{
-		case DLEP_STATUS_TLV:
-			if (seen_status)
-			{
-				printf("Multiple Status TLVs in Peer Termination signal\n");
-				ret = 0;
-			}
-			else if (!check_status(tlv))
-				ret = 0;
-			else
-				seen_status = 1;
-			break;
+		int seen_status = 0;
 
-		default:
-			printf("Unexpected TLV %u in Peer Termination signal\n",tlv[0]);
-			ret = 0;
-			break;
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+		{
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
+			{
+			case DLEP_STATUS_TLV:
+				if (seen_status)
+				{
+					printf("Multiple Status TLVs in Peer Termination signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_status(tlv);
+					seen_status = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Peer Termination",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (!seen_status)
+			{
+				printf("Missing mandatory Status TLV in Peer Termination signal\n");
+				sc = DLEP_SC_INVALID_DATA;
+			}
 		}
 	}
-
-	if (!seen_status)
-	{
-		printf("Missing mandatory Status TLV in Peer Termination signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_peer_update_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_peer_update_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_mdrr = 0;
-	int seen_mdrt = 0;
-	int seen_cdrr = 0;
-	int seen_cdrt = 0;
-	int seen_latency = 0;
-	int seen_resr = 0;
-	int seen_rest = 0;
-	int seen_rlqr = 0;
-	int seen_rlqt = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_UPDATE,"Peer Update");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		int seen_mdrr = 0;
+		int seen_mdrt = 0;
+		int seen_cdrr = 0;
+		int seen_cdrt = 0;
+		int seen_latency = 0;
+		int seen_resr = 0;
+		int seen_rest = 0;
+		int seen_rlqr = 0;
+		int seen_rlqt = 0;
+
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg+3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_IPV4_ADDRESS_TLV:
-			if (!check_ipv4_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			if (!check_ipv6_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_MDRR_TLV:
-			if (seen_mdrr)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple Maximum Data Rate (Receive) TLVs in Peer Update signal\n");
-				ret = 0;
+			case DLEP_IPV4_ADDRESS_TLV:
+				sc = check_ipv4_address(tlv);
+				break;
+
+			case DLEP_IPV6_ADDRESS_TLV:
+				sc = check_ipv6_address(tlv);
+				break;
+
+			case DLEP_MDRR_TLV:
+				if (seen_mdrr)
+				{
+					printf("Multiple Maximum Data Rate (Receive) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrr(tlv);
+					seen_mdrr = 1;
+				}
+				break;
+
+			case DLEP_MDRT_TLV:
+				if (seen_mdrt)
+				{
+					printf("Multiple Maximum Data Rate (Transmit) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrt(tlv);
+					seen_mdrt = 1;
+				}
+				break;
+
+			case DLEP_CDRR_TLV:
+				if (seen_cdrr)
+				{
+					printf("Multiple Current Data Rate (Receive) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrr(tlv);
+					seen_cdrr = 1;
+				}
+				break;
+
+			case DLEP_CDRT_TLV:
+				if (seen_cdrt)
+				{
+					printf("Multiple Current Data Rate (Transmit) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrt(tlv);
+					seen_cdrt = 1;
+				}
+				break;
+
+			case DLEP_LATENCY_TLV:
+				if (seen_latency)
+				{
+					printf("Multiple Latency TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_latency(tlv);
+					seen_latency = 1;
+				}
+				break;
+
+			case DLEP_RESR_TLV:
+				if (seen_resr)
+				{
+					printf("Multiple Resources (Receive) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_resr(tlv);
+					seen_resr = 1;
+				}
+				break;
+
+			case DLEP_REST_TLV:
+				if (seen_rest)
+				{
+					printf("Multiple Resources (Transmit) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rest(tlv);
+					seen_rest = 1;
+				}
+				break;
+
+			case DLEP_RLQR_TLV:
+				if (seen_rlqr)
+				{
+					printf("Multiple Relative Link Quality (Receive) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqr(tlv);
+					seen_rlqr = 1;
+				}
+				break;
+
+			case DLEP_RLQT_TLV:
+				if (seen_rlqt)
+				{
+					printf("Multiple Relative Link Quality (Transmit) TLVs in Peer Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqt(tlv);
+					seen_rlqt = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Peer Update",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
 			}
-			else if (!check_mdrr(tlv))
-				ret = 0;
-			else
-				seen_mdrr = 1;
-			break;
-
-		case DLEP_MDRT_TLV:
-			if (seen_mdrt)
-			{
-				printf("Multiple Maximum Data Rate (Transmit) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_mdrt(tlv))
-				ret = 0;
-			else
-				seen_mdrt = 1;
-			break;
-
-		case DLEP_CDRR_TLV:
-			if (seen_cdrr)
-			{
-				printf("Multiple Current Data Rate (Receive) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrr(tlv))
-				ret = 0;
-			else
-				seen_cdrr = 1;
-			break;
-
-		case DLEP_CDRT_TLV:
-			if (seen_cdrt)
-			{
-				printf("Multiple Current Data Rate (Transmit) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrt(tlv))
-				ret = 0;
-			else
-				seen_cdrt = 1;
-			break;
-
-		case DLEP_LATENCY_TLV:
-			if (seen_latency)
-			{
-				printf("Multiple Latency TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_latency(tlv))
-				ret = 0;
-			else
-				seen_latency = 1;
-			break;
-
-		case DLEP_RESR_TLV:
-			if (seen_resr)
-			{
-				printf("Multiple Resources (Receive) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_resr(tlv))
-				ret = 0;
-			else
-				seen_resr = 1;
-			break;
-
-		case DLEP_REST_TLV:
-			if (seen_rest)
-			{
-				printf("Multiple Resources (Transmit) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rest(tlv))
-				ret = 0;
-			else
-				seen_rest = 1;
-			break;
-
-		case DLEP_RLQR_TLV:
-			if (seen_rlqr)
-			{
-				printf("Multiple Relative Link Quality (Receive) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqr(tlv))
-				ret = 0;
-			else
-				seen_rlqr = 1;
-			break;
-
-		case DLEP_RLQT_TLV:
-			if (seen_rlqt)
-			{
-				printf("Multiple Relative Link Quality (Transmit) TLVs in Peer Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqt(tlv))
-				ret = 0;
-			else
-				seen_rlqt = 1;
-			break;
-
-		case DLEP_VENDOR_EXTENSION_TLV:
-			/* TODO: One should check for duplicates here */
-			if (!check_vendor_extension(tlv))
-				ret = 0;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Peer Update signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	return ret;
+	return sc;
 }
 
-int check_destination_up_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_destination_up_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_mac = 0;
-	int seen_mdrr = 0;
-	int seen_mdrt = 0;
-	int seen_cdrr = 0;
-	int seen_cdrt = 0;
-	int seen_latency = 0;
-	int seen_resr = 0;
-	int seen_rest = 0;
-	int seen_rlqr = 0;
-	int seen_rlqt = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_DEST_UP,"Destination Up");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		int seen_mac = 0;
+		int seen_mdrr = 0;
+		int seen_mdrt = 0;
+		int seen_cdrr = 0;
+		int seen_cdrt = 0;
+		int seen_latency = 0;
+		int seen_resr = 0;
+		int seen_rest = 0;
+		int seen_rlqr = 0;
+		int seen_rlqt = 0;
+
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg+3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_MAC_ADDRESS_TLV:
-			if (seen_mac)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple MAC Address TLVs in Destination Up signal\n");
-				ret = 0;
+			case DLEP_MAC_ADDRESS_TLV:
+				if (seen_mac)
+				{
+					printf("Multiple MAC Address TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mac_address(tlv);
+					seen_mac = 1;
+				}
+				break;
+
+			case DLEP_IPV4_ADDRESS_TLV:
+				sc = check_ipv4_address(tlv);
+				break;
+
+			case DLEP_IPV6_ADDRESS_TLV:
+				sc = check_ipv6_address(tlv);
+				break;
+
+			case DLEP_IPV4_ATT_SUBNET_TLV:
+				sc = check_ipv4_attached_subnet(tlv);
+				break;
+
+			case DLEP_IPV6_ATT_SUBNET_TLV:
+				sc = check_ipv6_attached_subnet(tlv);
+				break;
+
+			case DLEP_MDRR_TLV:
+				if (seen_mdrr)
+				{
+					printf("Multiple Maximum Data Rate (Receive) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrr(tlv);
+					seen_mdrr = 1;
+				}
+				break;
+
+			case DLEP_MDRT_TLV:
+				if (seen_mdrt)
+				{
+					printf("Multiple Maximum Data Rate (Transmit) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrt(tlv);
+					seen_mdrt = 1;
+				}
+				break;
+
+			case DLEP_CDRR_TLV:
+				if (seen_cdrr)
+				{
+					printf("Multiple Current Data Rate (Receive) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrr(tlv);
+					seen_cdrr = 1;
+				}
+				break;
+
+			case DLEP_CDRT_TLV:
+				if (seen_cdrt)
+				{
+					printf("Multiple Current Data Rate (Transmit) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrt(tlv);
+					seen_cdrt = 1;
+				}
+				break;
+
+			case DLEP_LATENCY_TLV:
+				if (seen_latency)
+				{
+					printf("Multiple Latency TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_latency(tlv);
+					seen_latency = 1;
+				}
+				break;
+
+			case DLEP_RESR_TLV:
+				if (seen_resr)
+				{
+					printf("Multiple Resources (Receive) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_resr(tlv);
+					seen_resr = 1;
+				}
+				break;
+
+			case DLEP_REST_TLV:
+				if (seen_rest)
+				{
+					printf("Multiple Resources (Transmit) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rest(tlv);
+					seen_rest = 1;
+				}
+				break;
+
+			case DLEP_RLQR_TLV:
+				if (seen_rlqr)
+				{
+					printf("Multiple Relative Link Quality (Receive) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqr(tlv);
+					seen_rlqr = 1;
+				}
+				break;
+
+			case DLEP_RLQT_TLV:
+				if (seen_rlqt)
+				{
+					printf("Multiple Relative Link Quality (Transmit) TLVs in Destination Up signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqt(tlv);
+					seen_rlqt = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Destination Up",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
 			}
-			else if (!check_mac_address(tlv))
-				ret = 0;
-			else
-				seen_mac = 1;
-			break;
+		}
 
-		case DLEP_IPV4_ADDRESS_TLV:
-			if (!check_ipv4_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			if (!check_ipv6_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_MDRR_TLV:
-			if (seen_mdrr)
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (!seen_mac)
 			{
-				printf("Multiple Maximum Data Rate (Receive) TLVs in Destination Up signal\n");
-				ret = 0;
+				printf("Missing mandatory MAC Address TLV in Destination Up signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_mdrr(tlv))
-				ret = 0;
-			else
-				seen_mdrr = 1;
-			break;
-
-		case DLEP_MDRT_TLV:
-			if (seen_mdrt)
-			{
-				printf("Multiple Maximum Data Rate (Transmit) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_mdrt(tlv))
-				ret = 0;
-			else
-				seen_mdrt = 1;
-			break;
-
-		case DLEP_CDRR_TLV:
-			if (seen_cdrr)
-			{
-				printf("Multiple Current Data Rate (Receive) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrr(tlv))
-				ret = 0;
-			else
-				seen_cdrr = 1;
-			break;
-
-		case DLEP_CDRT_TLV:
-			if (seen_cdrt)
-			{
-				printf("Multiple Current Data Rate (Transmit) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrt(tlv))
-				ret = 0;
-			else
-				seen_cdrt = 1;
-			break;
-
-		case DLEP_LATENCY_TLV:
-			if (seen_latency)
-			{
-				printf("Multiple Latency TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_latency(tlv))
-				ret = 0;
-			else
-				seen_latency = 1;
-			break;
-
-		case DLEP_RESR_TLV:
-			if (seen_resr)
-			{
-				printf("Multiple Resources (Receive) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_resr(tlv))
-				ret = 0;
-			else
-				seen_resr = 1;
-			break;
-
-		case DLEP_REST_TLV:
-			if (seen_rest)
-			{
-				printf("Multiple Resources (Transmit) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_rest(tlv))
-				ret = 0;
-			else
-				seen_rest = 1;
-			break;
-
-		case DLEP_RLQR_TLV:
-			if (seen_rlqr)
-			{
-				printf("Multiple Relative Link Quality (Receive) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqr(tlv))
-				ret = 0;
-			else
-				seen_rlqr = 1;
-			break;
-
-		case DLEP_RLQT_TLV:
-			if (seen_rlqt)
-			{
-				printf("Multiple Relative Link Quality (Transmit) TLVs in Destination Up signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqt(tlv))
-				ret = 0;
-			else
-				seen_rlqt = 1;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Destination Up signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	if (!seen_mac)
-	{
-		printf("Missing mandatory MAC Address TLV in Destination Up signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_destination_update_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_destination_update_signal(const uint8_t* msg, size_t len)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_mac = 0;
-	int seen_mdrr = 0;
-	int seen_mdrt = 0;
-	int seen_cdrr = 0;
-	int seen_cdrt = 0;
-	int seen_latency = 0;
-	int seen_resr = 0;
-	int seen_rest = 0;
-	int seen_rlqr = 0;
-	int seen_rlqt = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_DEST_UPDATE,"Destination Update");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		int seen_mac = 0;
+		int seen_mdrr = 0;
+		int seen_mdrt = 0;
+		int seen_cdrr = 0;
+		int seen_cdrt = 0;
+		int seen_latency = 0;
+		int seen_resr = 0;
+		int seen_rest = 0;
+		int seen_rlqr = 0;
+		int seen_rlqt = 0;
+
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
 		{
-		case DLEP_MAC_ADDRESS_TLV:
-			if (seen_mac)
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
 			{
-				printf("Multiple MAC Address TLVs in Destination Update signal\n");
-				ret = 0;
+			case DLEP_MAC_ADDRESS_TLV:
+				if (seen_mac)
+				{
+					printf("Multiple MAC Address TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mac_address(tlv);
+					seen_mac = 1;
+				}
+				break;
+
+			case DLEP_IPV4_ADDRESS_TLV:
+				sc = check_ipv4_address(tlv);
+				break;
+
+			case DLEP_IPV6_ADDRESS_TLV:
+				sc = check_ipv6_address(tlv);
+				break;
+
+			case DLEP_IPV4_ATT_SUBNET_TLV:
+				sc = check_ipv4_attached_subnet(tlv);
+				break;
+
+			case DLEP_IPV6_ATT_SUBNET_TLV:
+				sc = check_ipv6_attached_subnet(tlv);
+				break;
+
+			case DLEP_MDRR_TLV:
+				if (seen_mdrr)
+				{
+					printf("Multiple Maximum Data Rate (Receive) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrr(tlv);
+					seen_mdrr = 1;
+				}
+				break;
+
+			case DLEP_MDRT_TLV:
+				if (seen_mdrt)
+				{
+					printf("Multiple Maximum Data Rate (Transmit) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mdrt(tlv);
+					seen_mdrt = 1;
+				}
+				break;
+
+			case DLEP_CDRR_TLV:
+				if (seen_cdrr)
+				{
+					printf("Multiple Current Data Rate (Receive) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrr(tlv);
+					seen_cdrr = 1;
+				}
+				break;
+
+			case DLEP_CDRT_TLV:
+				if (seen_cdrt)
+				{
+					printf("Multiple Current Data Rate (Transmit) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrt(tlv);
+					seen_cdrt = 1;
+				}
+				break;
+
+			case DLEP_LATENCY_TLV:
+				if (seen_latency)
+				{
+					printf("Multiple Latency TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_latency(tlv);
+					seen_latency = 1;
+				}
+				break;
+
+			case DLEP_RESR_TLV:
+				if (seen_resr)
+				{
+					printf("Multiple Resources (Receive) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_resr(tlv);
+					seen_resr = 1;
+				}
+				break;
+
+			case DLEP_REST_TLV:
+				if (seen_rest)
+				{
+					printf("Multiple Resources (Transmit) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rest(tlv);
+					seen_rest = 1;
+				}
+				break;
+
+			case DLEP_RLQR_TLV:
+				if (seen_rlqr)
+				{
+					printf("Multiple Relative Link Quality (Receive) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqr(tlv);
+					seen_rlqr = 1;
+				}
+				break;
+
+			case DLEP_RLQT_TLV:
+				if (seen_rlqt)
+				{
+					printf("Multiple Relative Link Quality (Transmit) TLVs in Destination Update signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_rlqt(tlv);
+					seen_rlqt = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Destination Update",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
 			}
-			else if (!check_mac_address(tlv))
-				ret = 0;
-			else
-				seen_mac = 1;
-			break;
+		}
 
-		case DLEP_IPV4_ADDRESS_TLV:
-			if (!check_ipv4_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_IPV6_ADDRESS_TLV:
-			if (!check_ipv6_address(tlv))
-				ret = 0;
-			break;
-
-		case DLEP_MDRR_TLV:
-			if (seen_mdrr)
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (!seen_mac)
 			{
-				printf("Multiple Maximum Data Rate (Receive) TLVs in Destination Update signal\n");
-				ret = 0;
+				printf("Missing mandatory MAC Address TLV in Destination Update signal\n");
+				sc = DLEP_SC_INVALID_DATA;
 			}
-			else if (!check_mdrr(tlv))
-				ret = 0;
-			else
-				seen_mdrr = 1;
-			break;
-
-		case DLEP_MDRT_TLV:
-			if (seen_mdrt)
-			{
-				printf("Multiple Maximum Data Rate (Transmit) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_mdrt(tlv))
-				ret = 0;
-			else
-				seen_mdrt = 1;
-			break;
-
-		case DLEP_CDRR_TLV:
-			if (seen_cdrr)
-			{
-				printf("Multiple Current Data Rate (Receive) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrr(tlv))
-				ret = 0;
-			else
-				seen_cdrr = 1;
-			break;
-
-		case DLEP_CDRT_TLV:
-			if (seen_cdrt)
-			{
-				printf("Multiple Current Data Rate (Transmit) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_cdrt(tlv))
-				ret = 0;
-			else
-				seen_cdrt = 1;
-			break;
-
-		case DLEP_LATENCY_TLV:
-			if (seen_latency)
-			{
-				printf("Multiple Latency TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_latency(tlv))
-				ret = 0;
-			else
-				seen_latency = 1;
-			break;
-
-		case DLEP_RESR_TLV:
-			if (seen_resr)
-			{
-				printf("Multiple Resources (Receive) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_resr(tlv))
-				ret = 0;
-			else
-				seen_resr = 1;
-			break;
-
-		case DLEP_REST_TLV:
-			if (seen_rest)
-			{
-				printf("Multiple Resources (Transmit) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rest(tlv))
-				ret = 0;
-			else
-				seen_rest = 1;
-			break;
-
-		case DLEP_RLQR_TLV:
-			if (seen_rlqr)
-			{
-				printf("Multiple Relative Link Quality (Receive) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqr(tlv))
-				ret = 0;
-			else
-				seen_rlqr = 1;
-			break;
-
-		case DLEP_RLQT_TLV:
-			if (seen_rlqt)
-			{
-				printf("Multiple Relative Link Quality (Transmit) TLVs in Destination Update signal\n");
-				ret = 0;
-			}
-			else if (!check_rlqt(tlv))
-				ret = 0;
-			else
-				seen_rlqt = 1;
-			break;
-
-		default:
-			printf("Unexpected TLV %u in Destination Update signal\n",tlv[0]);
-			ret = 0;
-			break;
 		}
 	}
-
-	if (!seen_mac)
-	{
-		printf("Missing mandatory MAC Address TLV in Destination Update signal\n");
-		ret = 0;
-	}
-
-	return ret;
+	return sc;
 }
 
-int check_destination_down_signal(const uint8_t* tlvs, size_t len)
+enum dlep_status_code check_destination_down_signal(const uint8_t* msg, size_t len, const uint8_t** mac)
 {
-	int ret = 1;
-	const uint8_t* tlv;
-	int seen_mac = 0;
-
-	/* Check for mandatory TLV's */
-	for (tlv = tlvs; tlv < tlvs + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_DEST_DOWN,"Destination Down");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
-		{
-		case DLEP_MAC_ADDRESS_TLV:
-			if (seen_mac)
-			{
-				printf("Multiple MAC Address TLVs in Destination Down signal\n");
-				ret = 0;
-			}
-			else if (!check_mac_address(tlv))
-				ret = 0;
-			else
-				seen_mac = 1;
-			break;
+		int seen_mac = 0;
 
-		default:
-			printf("Unexpected TLV %u in Destination Down signal\n",tlv[0]);
-			ret = 0;
-			break;
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+		{
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
+			{
+			case DLEP_MAC_ADDRESS_TLV:
+				if (seen_mac)
+				{
+					printf("Multiple MAC Address TLVs in Destination Down signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mac_address(tlv);
+					if (sc == DLEP_SC_SUCCESS)
+						*mac = tlv + 2;
+					seen_mac = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Destination Down",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (!seen_mac)
+			{
+				printf("Missing mandatory MAC Address TLV in Destination Down signal\n");
+				sc = DLEP_SC_INVALID_DATA;
+			}
 		}
 	}
+	return sc;
+}
 
-	if (!seen_mac)
+enum dlep_status_code check_link_char_request_signal(const uint8_t* msg, size_t len, const uint8_t** mac)
+{
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_LINK_CHAR_REQ,"Link Characteristics Request");
+	if (sc == DLEP_SC_SUCCESS)
 	{
-		printf("Missing mandatory MAC Address TLV in Destination Down signal\n");
-		ret = 0;
-	}
+		int seen_mac = 0;
+		int seen_timer = 0;
+		int seen_cdrr = 0;
+		int seen_cdrt = 0;
+		int seen_latency = 0;
 
-	return ret;
+		/* Check for mandatory TLV's */
+		const uint8_t* tlv;
+		for (tlv = msg + 3; tlv < msg + len && sc == DLEP_SC_SUCCESS; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+		{
+			/* Octet 0 is the TLV type */
+			switch ((enum dlep_tlvs)tlv[0])
+			{
+			case DLEP_MAC_ADDRESS_TLV:
+				if (seen_mac)
+				{
+					printf("Multiple MAC Address TLVs in Link Characteristics Request signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_mac_address(tlv);
+					if (sc == DLEP_SC_SUCCESS)
+						*mac = tlv + 2;
+					seen_mac = 1;
+				}
+				break;
+
+			case DLEP_LINK_CHAR_ACK_TIMER_TLV:
+				if (seen_timer)
+				{
+					printf("Multiple Link Characteristics ACK Timer TLVs in Link Characteristics Request signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_lcr_timer(tlv);
+					seen_timer = 1;
+				}
+				break;
+
+			case DLEP_CDRR_TLV:
+				if (seen_cdrr)
+				{
+					printf("Multiple Current Data Rate (Receive) TLVs in Link Characteristics Request signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrr(tlv);
+					seen_cdrr = 1;
+				}
+				break;
+
+			case DLEP_CDRT_TLV:
+				if (seen_cdrt)
+				{
+					printf("Multiple Current Data Rate (Transmit) TLVs in Link Characteristics Request signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_cdrt(tlv);
+					seen_cdrt = 1;
+				}
+				break;
+
+			case DLEP_LATENCY_TLV:
+				if (seen_latency)
+				{
+					printf("Multiple Latency TLVs in Link Characteristics Request signal\n");
+					sc = DLEP_SC_INVALID_DATA;
+				}
+				else
+				{
+					sc = check_latency(tlv);
+					seen_latency = 1;
+				}
+				break;
+
+			default:
+				printf_unexpected_tlv("Link Characteristics Request",tlv[0]);
+				sc = DLEP_SC_INVALID_DATA;
+				break;
+			}
+		}
+
+		if (sc == DLEP_SC_SUCCESS)
+		{
+			if (!seen_mac)
+			{
+				printf("Missing mandatory MAC Address TLV in Link Characteristics Request signal\n");
+				sc = DLEP_SC_INVALID_DATA;
+			}
+		}
+	}
+	return sc;
 }

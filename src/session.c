@@ -24,7 +24,7 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
-	msg[0] = DLEP_PEER_INITIALIZATION;
+	msg[0] = DLEP_PEER_INIT;
 
 	/* Data items start at octet 3 */
 	tlv = msg + 3;
@@ -37,30 +37,14 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 	tlv += tlv[1] + 2;
 
 	/* Write out our Heartbeat Interval */
-	tlv[0] = DLEP_HEARTBEAT_INTERVAL_TLV;
+	tlv[0] = DLEP_PEER_HEARTBEAT_INTERVAL_TLV;
 	set_uint16(router_heartbeat_interval,tlv+2);
 	tlv[1] = 2;
 	tlv += tlv[1] + 2;
 
-	/* Write out Optional Signals Supported */
-	tlv[0] = DLEP_OPTIONAL_SIGNALS_TLV;
-	tlv[2] = DLEP_PEER_UPDATE_ACK;
-	tlv[1] = 1;
-	tlv += tlv[1] + 2;
-
-	/* Write out Optional Data Items Supported */
-	tlv[0] = DLEP_OPTIONAL_DATA_ITEMS_TLV;
-	tlv[2] = DLEP_RESR_TLV;
-	tlv[3] = DLEP_REST_TLV;
-	tlv[4] = DLEP_RLQR_TLV;
-	tlv[5] = DLEP_RLQT_TLV;
-	tlv[6] = DLEP_VENDOR_EXTENSION_TLV;
-	tlv[1] = 5;
-	tlv += tlv[1] + 2;
-
 	/* Write out Peer Type */
 	tlv[0] = DLEP_PEER_TYPE_TLV;
-	strcpy((char*)(tlv+2),"dlep_router: Simple example DLEP router");
+	strcpy((char*)(tlv+2),PEER_TYPE);
 	tlv[1] = strlen((char*)(tlv+2));
 	tlv += tlv[1] + 2;
 
@@ -86,13 +70,13 @@ static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
-	msg[0] = DLEP_HEARTBEAT;
+	msg[0] = DLEP_PEER_HEARTBEAT;
 
 	/* Data items start at octet 3 */
 	tlv = msg + 3;
 
 	/* Write out our Heartbeat Interval */
-	tlv[0] = DLEP_HEARTBEAT_INTERVAL_TLV;
+	tlv[0] = DLEP_PEER_HEARTBEAT_INTERVAL_TLV;
 	set_uint16(router_heartbeat_interval,tlv+2);
 	tlv[1] = 2;
 	tlv += tlv[1] + 2;
@@ -107,14 +91,14 @@ static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 		printf("Failed to send Heartbeat signal: %s\n",strerror(errno));
 }
 
-static void send_peer_term(int s, unsigned int status)
+static void send_peer_term(int s, enum dlep_status_code sc)
 {
 	uint8_t msg[30];
 	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
-	msg[0] = DLEP_PEER_TERMINATION;
+	msg[0] = DLEP_PEER_TERM;
 
 	/* Data items start at octet 3 */
 	tlv = msg + 3;
@@ -122,7 +106,7 @@ static void send_peer_term(int s, unsigned int status)
 	/* Write out our Status */
 	tlv[0] = DLEP_STATUS_TLV;
 	tlv[1] = 1;
-	tlv[2] = status;
+	tlv[2] = sc;
 	tlv += tlv[1] + 2;
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
@@ -135,14 +119,14 @@ static void send_peer_term(int s, unsigned int status)
 		printf("Failed to send Peer Termination signal: %s\n",strerror(errno));
 }
 
-static void send_peer_term_ack(int s, unsigned int status)
+static void send_peer_term_ack(int s, enum dlep_status_code sc)
 {
 	uint8_t msg[30];
 	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
-	msg[0] = DLEP_PEER_TERMINATION_ACK;
+	msg[0] = DLEP_PEER_TERM_ACK;
 
 	/* Data items start at octet 3 */
 	tlv = msg + 3;
@@ -150,7 +134,7 @@ static void send_peer_term_ack(int s, unsigned int status)
 	/* Write out our Status */
 	tlv[0] = DLEP_STATUS_TLV;
 	tlv[1] = 1;
-	tlv[2] = status;
+	tlv[2] = sc;
 	tlv += tlv[1] + 2;
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
@@ -163,42 +147,14 @@ static void send_peer_term_ack(int s, unsigned int status)
 		printf("Failed to send Peer Termination ACK signal: %s\n",strerror(errno));
 }
 
-static void send_destination_up_ack(int s, const uint8_t* mac)
+static void send_destination_up_ack(int s, const uint8_t* mac, enum dlep_status_code sc)
 {
 	uint8_t msg[30];
 	uint8_t* tlv;
 	uint16_t msg_len = 0;
 
 	/* Octet 0 is the signal number */
-	msg[0] = DLEP_DESTINATION_UP_ACK;
-
-	/* Data items start at octet 3 */
-	tlv = msg + 3;
-
-	/* Write out our MAC Address */
-	tlv[0] = DLEP_MAC_ADDRESS_TLV;
-	tlv[1] = 6;
-	memcpy(tlv+2,mac,6);
-	tlv += tlv[1] + 2;
-
-	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
-	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
-
-	printf("Sending Destination Up ACK signal\n");
-
-	if (send(s,msg,msg_len,0) != msg_len)
-		printf("Failed to send Destination Up ACK signal: %s\n",strerror(errno));
-}
-
-static void send_destination_down_ack(int s, const uint8_t* mac, int status)
-{
-	uint8_t msg[30];
-	uint8_t* tlv;
-	uint16_t msg_len = 0;
-
-	/* Octet 0 is the signal number */
-	msg[0] = DLEP_DESTINATION_DOWN_ACK;
+	msg[0] = DLEP_DEST_UP_ACK;
 
 	/* Data items start at octet 3 */
 	tlv = msg + 3;
@@ -212,7 +168,41 @@ static void send_destination_down_ack(int s, const uint8_t* mac, int status)
 	/* Write out our Status */
 	tlv[0] = DLEP_STATUS_TLV;
 	tlv[1] = 1;
-	tlv[2] = status;
+	tlv[2] = sc;
+	tlv += tlv[1] + 2;
+
+	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
+	msg_len = tlv - msg;
+	set_uint16(msg_len,msg+1);
+
+	printf("Sending Destination Up ACK signal\n");
+
+	if (send(s,msg,msg_len,0) != msg_len)
+		printf("Failed to send Destination Up ACK signal: %s\n",strerror(errno));
+}
+
+static void send_destination_down_ack(int s, const uint8_t* mac, enum dlep_status_code sc)
+{
+	uint8_t msg[30];
+	uint8_t* tlv;
+	uint16_t msg_len = 0;
+
+	/* Octet 0 is the signal number */
+	msg[0] = DLEP_DEST_DOWN_ACK;
+
+	/* Data items start at octet 3 */
+	tlv = msg + 3;
+
+	/* Write out our MAC Address */
+	tlv[0] = DLEP_MAC_ADDRESS_TLV;
+	tlv[1] = 6;
+	memcpy(tlv+2,mac,6);
+	tlv += tlv[1] + 2;
+
+	/* Write out our Status */
+	tlv[0] = DLEP_STATUS_TLV;
+	tlv[1] = 1;
+	tlv[2] = sc;
 	tlv += tlv[1] + 2;
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
@@ -225,25 +215,77 @@ static void send_destination_down_ack(int s, const uint8_t* mac, int status)
 		printf("Failed to send Destination Down ACK signal: %s\n",strerror(errno));
 }
 
-static void parse_vendor_extension_tlv(const uint8_t* tlv)
+static void send_link_char_request_ack(int s, const uint8_t* mac, enum dlep_status_code sc)
 {
-	printf("    OUI: ");
-	printfBytes(tlv+3,tlv[2],':');
-	printf("\n    Device type %u\n    Payload: ",get_uint16(tlv+4));
-	if (tlv[7] != tlv[1] - 6 || tlv[7] <= 2)
-		printfBytes(tlv+6,tlv[1] - 6,' ');
-	else
-	{
-		printf("\n      Type %u\n      Length %u\n      Value: ",tlv[6],tlv[7]);
-		printfBytes(tlv+8,tlv[7] - 2,' ');
-	}
-	printf("\n");
+	uint8_t msg[30];
+	uint8_t* tlv;
+	uint16_t msg_len = 0;
+
+	/* Octet 0 is the signal number */
+	msg[0] = DLEP_LINK_CHAR_ACK;
+
+	/* Data items start at octet 3 */
+	tlv = msg + 3;
+
+	/* Write out our MAC Address */
+	tlv[0] = DLEP_MAC_ADDRESS_TLV;
+	tlv[1] = 6;
+	memcpy(tlv+2,mac,6);
+	tlv += tlv[1] + 2;
+
+	/* Write out our Status */
+	tlv[0] = DLEP_STATUS_TLV;
+	tlv[1] = 1;
+	tlv[2] = sc;
+	tlv += tlv[1] + 2;
+
+	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
+	msg_len = tlv - msg;
+	set_uint16(msg_len,msg+1);
+
+	printf("Sending Link Characteristics ACK signal\n");
+
+	if (send(s,msg,msg_len,0) != msg_len)
+		printf("Failed to send Destination Down ACK signal: %s\n",strerror(errno));
 }
 
-static unsigned int parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, uint16_t* heartbeat_interval)
+static void printf_status(enum dlep_status_code sc)
+{
+	switch (sc)
+	{
+	case DLEP_SC_SUCCESS:
+		printf("  Status: %u - Success\n",sc);
+		break;
+
+	case DLEP_SC_UNKNOWN_SIGNAL:
+		printf("  Status: %u - Unknown Signal\n",sc);
+		break;
+
+	case DLEP_SC_INVALID_DATA:
+		printf("  Status: %u - Invalid Data\n",sc);
+		break;
+
+	case DLEP_SC_UNEXPECTED_SIGNAL:
+		printf("  Status: %u - Unexpected Signal\n",sc);
+		break;
+
+	case DLEP_SC_REQUEST_DENIED:
+		printf("  Status: %u - Request Denied\n",sc);
+		break;
+
+	case DLEP_SC_TIMEDOUT:
+		printf("  Status: %u - Timed Out\n",sc);
+		break;
+
+	case DLEP_SC_INVALID_DEST:
+		printf("  Status: %u - Invalid Destination\n",sc);
+		break;
+	}
+}
+
+static enum dlep_status_code parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, uint16_t* heartbeat_interval, enum dlep_status_code* sc)
 {
 	const uint8_t* tlv;
-	unsigned int status = 0;
 
 	printf("Valid Peer Initialization ACK signal from modem:\n");
 
@@ -253,7 +295,7 @@ static unsigned int parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, 
 		/* Octet 0 is the TLV type */
 		switch ((enum dlep_tlvs)tlv[0])
 		{
-		case DLEP_HEARTBEAT_INTERVAL_TLV:
+		case DLEP_PEER_HEARTBEAT_INTERVAL_TLV:
 			*heartbeat_interval = get_uint16(tlv+2);
 			printf("  Heartbeat Interval: %u\n",*heartbeat_interval);
 			break;
@@ -263,8 +305,8 @@ static unsigned int parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, 
 			break;
 
 		case DLEP_STATUS_TLV:
-			status = tlv[2];
-			printf("  Status: %u\n",status);
+			*sc = tlv[2];
+			printf_status(*sc);
 			break;
 
 		case DLEP_MDRR_TLV:
@@ -303,72 +345,29 @@ static unsigned int parse_peer_init_ack_signal(const uint8_t* tlvs, size_t len, 
 			printf("  Default RLQT: %u\n",tlv[2]);
 			break;
 
-		case DLEP_OPTIONAL_SIGNALS_TLV:
+		case DLEP_EXTS_SUPP_TLV:
+			if (tlv[1] != 0)
 			{
-				const uint8_t* tlv_type = tlv + 2;
-				const uint8_t* end = tlv + tlv[1];
-
-				while (tlv_type < end)
+				unsigned int exts;
+				printf("  Unsupported Extensions advertised by peer:\n");
+				for (exts = 0; exts < tlv[1]; ++exts)
 				{
-					switch ((enum dlep_tlvs)*tlv_type++)
-					{
-					case DLEP_PEER_UPDATE:
-						printf("  Peer Update signal supported\n");
-						break;
-
-					case DLEP_PEER_UPDATE_ACK:
-						printf("  Peer Update ACK signal supported\n");
-						break;
-
-					case DLEP_LINK_CHARACTERISTICS_ACK:
-						printf("  Link Characteristics Request ACK signal supported\n");
-						break;
-					}
+					printf("    Extension: %d\n",tlv[1 + exts]);
 				}
+				return DLEP_SC_INVALID_DATA;
 			}
 			break;
 
-		case DLEP_OPTIONAL_DATA_ITEMS_TLV:
+		case DLEP_EXP_DEFNS_TLV:
+			if (tlv[1] != 0)
 			{
-				const uint8_t* tlv_type = tlv + 2;
-				const uint8_t* end = tlv + tlv[1];
-
-				while (tlv_type < end)
-				{
-					switch ((enum dlep_tlvs)*tlv_type++)
-					{
-					case DLEP_RESR_TLV:
-						printf("  Resources (Receive) TLV supported\n");
-						break;
-
-					case DLEP_REST_TLV:
-						printf("  Resources (Transmit) TLV supported\n");
-						break;
-
-					case DLEP_RLQR_TLV:
-						printf("  RLQR TLV supported\n");
-						break;
-
-					case DLEP_RLQT_TLV:
-						printf("  RLQT TLV supported\n");
-						break;
-
-					case DLEP_VENDOR_EXTENSION_TLV:
-						printf("  Vendor Extension TLV supported\n");
-						break;
-					}
-				}
+				printf("  Unsupported Experimental Definition advertised by peer:%.*s\n",(int)tlv[1],tlv+2);
+				return DLEP_SC_INVALID_DATA;
 			}
-			break;
-
-		case DLEP_VENDOR_EXTENSION_TLV:
-			printf("  Default Vendor extension:\n");
-			parse_vendor_extension_tlv(tlv);
 			break;
 		}
 	}
-
-	return status;
+	return DLEP_SC_SUCCESS;
 }
 
 static void parse_address(const uint8_t* tlv)
@@ -386,10 +385,19 @@ static void parse_address(const uint8_t* tlv)
 		printf("IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+3,address,sizeof(address)));
 }
 
+static void parse_attached_subnet(const uint8_t* tlv)
+{
+	char address[INET6_ADDRSTRLEN] = {0};
+
+	if (tlv[1] == 5)
+		printf("IPv4 attached subnet: %s/%u\n",inet_ntop(AF_INET,tlv+2,address,sizeof(address)),(unsigned int)tlv[6]);
+	else
+		printf("IPv6 attached subnet: %s/%u\n",inet_ntop(AF_INET6,tlv+2,address,sizeof(address)),(unsigned int)tlv[18]);
+}
+
 static void parse_peer_update_signal(const uint8_t* tlvs, size_t len)
 {
 	const uint8_t* tlv;
-	unsigned int status = 0;
 
 	printf("Received Peer Update signal from modem:\n");
 
@@ -439,11 +447,6 @@ static void parse_peer_update_signal(const uint8_t* tlvs, size_t len)
 		case DLEP_RLQT_TLV:
 			printf("  Peer RLQT: %u\n",tlv[2]);
 			break;
-
-		case DLEP_VENDOR_EXTENSION_TLV:
-			printf("  Peer Vendor extension:\n");
-			parse_vendor_extension_tlv(tlv);
-			break;
 		}
 	}
 }
@@ -451,7 +454,6 @@ static void parse_peer_update_signal(const uint8_t* tlvs, size_t len)
 static void parse_destination_up_signal(int s, const uint8_t* tlvs, size_t len)
 {
 	const uint8_t* tlv;
-	unsigned int status = 0;
 
 	printf("Received Destination Up signal from modem:\n");
 
@@ -463,13 +465,17 @@ static void parse_destination_up_signal(int s, const uint8_t* tlvs, size_t len)
 		{
 		case DLEP_MAC_ADDRESS_TLV:
 			printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",tlv[2],tlv[3],tlv[4],tlv[5],tlv[6],tlv[7]);
-
-			send_destination_up_ack(s,tlv+2);
+			send_destination_up_ack(s,tlv+2,DLEP_SC_SUCCESS);
 			break;
 
 		case DLEP_IPV4_ADDRESS_TLV:
 		case DLEP_IPV6_ADDRESS_TLV:
 			parse_address(tlv);
+			break;
+
+		case DLEP_IPV4_ATT_SUBNET_TLV:
+		case DLEP_IPV6_ATT_SUBNET_TLV:
+			parse_attached_subnet(tlv);
 			break;
 
 		case DLEP_MDRR_TLV:
@@ -514,7 +520,6 @@ static void parse_destination_up_signal(int s, const uint8_t* tlvs, size_t len)
 static void parse_destination_update_signal(const uint8_t* tlvs, size_t len)
 {
 	const uint8_t* tlv;
-	unsigned int status = 0;
 
 	printf("Received Destination Update signal from modem:\n");
 
@@ -531,6 +536,11 @@ static void parse_destination_update_signal(const uint8_t* tlvs, size_t len)
 		case DLEP_IPV4_ADDRESS_TLV:
 		case DLEP_IPV6_ADDRESS_TLV:
 			parse_address(tlv);
+			break;
+
+		case DLEP_IPV4_ATT_SUBNET_TLV:
+		case DLEP_IPV6_ATT_SUBNET_TLV:
+			parse_attached_subnet(tlv);
 			break;
 
 		case DLEP_MDRR_TLV:
@@ -574,158 +584,149 @@ static void parse_destination_update_signal(const uint8_t* tlvs, size_t len)
 
 static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_heartbeat_interval)
 {
-	int ret = 0;
+	enum dlep_status_code sc = DLEP_SC_SUCCESS;
 	if (len < 3)
 	{
 		printf("Packet too short for a DLEP signal: %u bytes\n",(unsigned int)len);
-
-		send_peer_term(s,1);
+		sc = DLEP_SC_UNKNOWN_SIGNAL;
 	}
 	else
 	{
-		uint16_t reported_len = get_uint16(msg+1);
-		if (reported_len != len)
+		const uint8_t* mac;
+
+		/* Check the signal type */
+		switch ((enum dlep_signals)msg[0])
 		{
-			printf("Received signal length %u does not match received packet length %u\n",reported_len,(unsigned int)len);
+		case DLEP_PEER_DISCOVERY:
+			printf("Unexpected Peer Discovery signal received during 'in session' state\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
 
-			send_peer_term(s,1);
-		}
-		else
-		{
-			int status = 0;
+		case DLEP_PEER_OFFER:
+			printf("Unexpected Peer Offer signal received during 'in session' state\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
 
-			ret = 1;
+		case DLEP_PEER_INIT:
+			printf("Unexpected Peer Initialization signal received during 'in session' state\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
 
-			/* Check the signal type */
-			switch ((enum dlep_signals)msg[0])
+		case DLEP_PEER_INIT_ACK:
+			printf("Unexpected Peer Initialization ACK signal received during 'in session' state\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_PEER_TERM:
+			if (!check_peer_term_signal(msg,len))
+				send_peer_term_ack(s,1);
+			else
 			{
-			case DLEP_PEER_DISCOVERY:
-				printf("Unexpected Peer Discovery signal received during 'in session' state\n");
-				status = 1;
-				break;
-
-			case DLEP_PEER_OFFER:
-				printf("Unexpected Peer Offer signal received during 'in session' state\n");
-				status = 1;
-				break;
-
-			case DLEP_PEER_INITIALIZATION:
-				printf("Unexpected Peer Initialization signal received during 'in session' state\n");
-				status = 1;
-				break;
-
-			case DLEP_PEER_INITIALIZATION_ACK:
-				printf("Unexpected Peer Initialization ACK signal received during 'in session' state\n");
-				status = 1;
-				break;
-
-			case DLEP_PEER_TERMINATION:
-				if (!check_peer_term_signal(msg+3,len-3))
-					send_peer_term_ack(s,1);
-				else
-				{
-					printf("Received Peer Termination signal from modem\n");
-					send_peer_term_ack(s,0);
-				}
-				break;
-
-			case DLEP_PEER_TERMINATION_ACK:
-				printf("Unexpected Peer Termination Ack signal received during 'in session' state\n");
-				status = 1;
-				break;
-
-			case DLEP_PEER_UPDATE:
-				if (!check_peer_update_signal(msg+3,len-3))
-					status = 1;
-				else
-					parse_peer_update_signal(msg+3,len-3);
-				break;
-
-			case DLEP_PEER_UPDATE_ACK:
-				printf("Unexpected Peer Update Ack signal received\n");
-				status = 1;
-				break;
-
-			case DLEP_DESTINATION_UP:
-				if (!check_destination_up_signal(msg+3,len-3))
-					status = 1;
-				else
-					parse_destination_up_signal(s,msg+3,len-3);
-				break;
-
-			case DLEP_DESTINATION_UP_ACK:
-				printf("Unexpected Destination Up Ack signal received\n");
-				status = 1;
-				break;
-
-			case DLEP_DESTINATION_DOWN:
-				if (!check_destination_down_signal(msg+3,len-3))
-					status = 1;
-				else
-				{
-					printf("Received Destination Down signal from modem:\n");
-
-					/* The signal has been validated so just scan for the relevant tlvs */
-					printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",msg[5],msg[6],msg[7],msg[8],msg[9],msg[10]);
-
-					send_destination_down_ack(s,msg+5,0);
-				}
-				break;
-
-			case DLEP_DESTINATION_DOWN_ACK:
-				printf("Unexpected Destination Up Ack signal received\n");
-				status = 1;
-				break;
-
-			case DLEP_DESTINATION_UPDATE:
-				if (!check_destination_update_signal(msg+3,len-3))
-					status = 1;
-				else
-					parse_destination_update_signal(msg+3,len-3);
-				break;
-
-			case DLEP_LINK_CHARACTERISTICS_REQUEST:
-				printf("Unsupported Link Characteristics Request signal received\n");
-				status = 1;
-				break;
-
-			case DLEP_LINK_CHARACTERISTICS_ACK:
-				printf("Unsupported Link Characteristics Ack signal received\n");
-				status = 1;
-				break;
-
-			case DLEP_HEARTBEAT:
-				if (!check_heartbeat_signal(msg+3,len-3))
-					status = 1;
-				else
-				{
-					uint16_t hb = get_uint16(msg+5);
-
-					printf("Received Heartbeat signal from modem\n");
-
-					if (hb != *modem_heartbeat_interval)
-					{
-						printf("Modem Heartbeat Interval changed to %u secs\n",hb);
-						*modem_heartbeat_interval = hb;
-					}
-				}
-				break;
-
-			default:
-				printf("Unrecognized signal %u received\n",msg[0]);
-				status = 1;
-				break;
+				printf("Received Peer Termination signal from modem\n");
+				send_peer_term_ack(s,0);
 			}
+			break;
 
-			if (status)
+		case DLEP_PEER_TERM_ACK:
+			printf("Unexpected Peer Termination ACK signal received during 'in session' state\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_PEER_UPDATE:
+			sc = check_peer_update_signal(msg,len);
+			if (sc == DLEP_SC_SUCCESS)
+				parse_peer_update_signal(msg+3,len-3);
+			break;
+
+		case DLEP_PEER_UPDATE_ACK:
+			printf("Unexpected Peer Update ACK signal received\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_DEST_UP:
+			sc = check_destination_up_signal(msg,len);
+			if (sc == DLEP_SC_SUCCESS)
+				parse_destination_up_signal(s,msg+3,len-3);
+			break;
+
+		case DLEP_DEST_UP_ACK:
+			printf("Unexpected Destination Up ACK signal received\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_DEST_DOWN:
+			sc = check_destination_down_signal(msg,len,&mac);
+			if (sc == DLEP_SC_SUCCESS)
 			{
-				send_peer_term(s,status);
-				ret = 0;
+				printf("Received Destination Down signal from modem:\n");
+
+				/* The signal has been validated so just scan for the relevant tlvs */
+				printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",msg[5],msg[6],msg[7],msg[8],msg[9],msg[10]);
+
+				send_destination_down_ack(s,mac,0);
 			}
+			break;
+
+		case DLEP_DEST_DOWN_ACK:
+			printf("Unexpected Destination Up ACK signal received\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_DEST_UPDATE:
+			sc = check_destination_update_signal(msg,len,&mac);
+			if (sc == DLEP_SC_SUCCESS)
+				parse_destination_update_signal(msg+3,len-3);
+			break;
+
+		case DLEP_LINK_CHAR_REQ:
+			printf("Unsupported Link Characteristics Request signal received\n");
+			sc = check_link_char_request_signal(msg,len,&mac);
+			if (sc == DLEP_SC_SUCCESS)
+			{
+				printf("Received Link Characteristics Request signal from modem:\n");
+
+				send_link_char_request_ack(s,mac,DLEP_SC_REQUEST_DENIED);
+			}
+			break;
+
+		case DLEP_LINK_CHAR_ACK:
+			printf("Unexpected Link Characteristics ACK signal received\n");
+			sc = DLEP_SC_UNEXPECTED_SIGNAL;
+			break;
+
+		case DLEP_PEER_HEARTBEAT:
+			sc = check_heartbeat_signal(msg,len);
+			if (sc == DLEP_SC_SUCCESS)
+			{
+				uint16_t hb = get_uint16(msg+5);
+
+				printf("Received Heartbeat signal from modem\n");
+
+				if (hb != *modem_heartbeat_interval)
+				{
+					printf("Modem Heartbeat Interval changed to %u secs\n",hb);
+					*modem_heartbeat_interval = hb;
+				}
+			}
+			break;
+
+		default:
+			printf("Unrecognized signal %u received\n",msg[0]);
+			sc = DLEP_SC_UNKNOWN_SIGNAL;
+			break;
 		}
 	}
 
-	return ret;
+	if (sc)
+	{
+		send_peer_term(s,sc);
+		return 0;
+	}
+
+	if ((enum dlep_signals)msg[0] == DLEP_PEER_TERM)
+		return 0;
+
+	return 1;
 }
 
 static ssize_t recv_signal(int s, uint8_t** msg)
@@ -900,10 +901,17 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 			/* Check it's a valid Peer Initialization ACK signal */
 			if (check_peer_init_ack_signal(msg,received))
 			{
-				unsigned int status = parse_peer_init_ack_signal(msg+3,received-3,&modem_heartbeat_interval);
-				if (status != 0)
+				enum dlep_status_code init_sc = DLEP_SC_SUCCESS;
+				enum dlep_status_code sc = parse_peer_init_ack_signal(msg+3,received-3,&modem_heartbeat_interval,&init_sc);
+				if (sc != DLEP_SC_SUCCESS)
 				{
-					printf("Non-zero Status TLV in Peer Initialization ACK signal: %u, Terminating\n",status);
+					send_peer_term(s,sc);
+				}
+				else if (init_sc != DLEP_SC_SUCCESS)
+				{
+					printf("Non-zero Status TLV in Peer Initialization ACK signal: %u, Terminating\n",init_sc);
+
+					send_peer_term(s,DLEP_SC_SUCCESS);
 				}
 				else
 				{
