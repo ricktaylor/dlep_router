@@ -618,12 +618,13 @@ static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_
 			break;
 
 		case DLEP_PEER_TERM:
-			if (!check_peer_term_signal(msg,len))
-				send_peer_term_ack(s,1);
+			sc = check_peer_term_signal(msg,len);
+			if (sc != DLEP_SC_SUCCESS)
+				send_peer_term_ack(s,sc);
 			else
 			{
 				printf("Received Peer Termination signal from modem\n");
-				send_peer_term_ack(s,0);
+				send_peer_term_ack(s,DLEP_SC_SUCCESS);
 			}
 			break;
 
@@ -788,7 +789,7 @@ static void in_session(int s, uint8_t* msg, uint16_t modem_heartbeat_interval, u
 	clock_gettime(CLOCK_MONOTONIC,&last_recv_time);
 	clock_gettime(CLOCK_MONOTONIC,&last_sent_time);
 
-	/* Loop forever */
+	/* Loop forever handling signals */
 	for (;;)
 	{
 		ssize_t received;
