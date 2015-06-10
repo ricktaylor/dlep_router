@@ -31,8 +31,8 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	/* Write out our version */
 	tlv[0] = DLEP_VERSION_TLV;
 	tlv[1] = 4;
-	set_uint16(0,tlv + 2);
-	set_uint16(14,tlv + 4);
+	set_uint16(DLEP_MAJOR_VERSION,tlv + 2);
+	set_uint16(DLEP_MINOR_VERSION,tlv + 4);
 	tlv += tlv[1] + 2;
 
 	/* Write out Peer Type */

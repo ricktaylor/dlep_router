@@ -32,8 +32,8 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 	/* Write out our version */
 	tlv[0] = DLEP_VERSION_TLV;
 	tlv[1] = 4;
-	set_uint16(0,tlv + 2);
-	set_uint16(7,tlv + 4);
+	set_uint16(DLEP_MAJOR_VERSION,tlv + 2);
+	set_uint16(DLEP_MINOR_VERSION,tlv + 4);
 	tlv += tlv[1] + 2;
 
 	/* Write out our Heartbeat Interval */

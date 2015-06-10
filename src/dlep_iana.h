@@ -20,8 +20,12 @@ Copyright (c) 2014 Airbus DS Limited
 /* The well-known port for modem discovery */
 #define DLEP_WELL_KNOWN_MULTICAST_PORT 22222
 
-/* The well-known TCP port for session, Section 11.7) */
-#define DLEP_WELL_KNOWN_TCP_PORT 22223
+/* The well-known TCP port for session, Section 11.7 */
+#define DLEP_WELL_KNOWN_TCP_PORT 22222
+
+/* Currently we use the version number 0.14 until WG last call completes */
+#define DLEP_MAJOR_VERSION 0
+#define DLEP_MINOR_VERSION 14
 
 /* The signal numbers - The values are NOT final */
 enum dlep_signals {
@@ -40,9 +44,7 @@ enum dlep_signals {
   DLEP_DEST_UPDATE                  = 12,
   DLEP_PEER_HEARTBEAT               = 13,
   DLEP_LINK_CHAR_REQ                = 14,
-  DLEP_LINK_CHAR_ACK                = 15,
-
-  DLEP_SIGNAL_COUNT
+  DLEP_LINK_CHAR_ACK                = 15
 };
 
 /* The TLV discriminators - The values are NOT final */
@@ -69,9 +71,9 @@ enum dlep_tlvs {
   DLEP_REST_TLV                = 19,
   DLEP_RLQR_TLV                = 20,
   DLEP_RLQT_TLV                = 21,
-  DLEP_LINK_CHAR_ACK_TIMER_TLV = 22,
+  DLEP_LINK_CHAR_ACK_TIMER_TLV = 22
 
-  DLEP_TLV_COUNT
+  /* No credit-windowing support */
 };
 
 /* The DLEP Status Codes - The values are NOT final */

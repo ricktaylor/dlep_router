@@ -29,12 +29,12 @@ static enum dlep_status_code check_version(const uint8_t* tlv)
 
 		if (major == 1 || minor == 0)
 		{
-			printf("DLEP version 1.0 advertised, but this version does not know the IANA registered numbers, use 0.14\n");
+			printf("DLEP version 1.0 advertised, but this version does not know the IANA registered numbers, use %u.%u\n",DLEP_MAJOR_VERSION,DLEP_MINOR_VERSION);
 			sc = DLEP_SC_INVALID_DATA;
 		}
-		else if (major != 0 || minor != 14)
+		else if (major != DLEP_MAJOR_VERSION || minor != DLEP_MINOR_VERSION)
 		{
-			printf("Only DLEP version 0.14 supported, discovered %u.%u\n",major,minor);
+			printf("Only DLEP version %u.%u supported, discovered %u.%u\n",DLEP_MAJOR_VERSION,DLEP_MINOR_VERSION,major,minor);
 			sc = DLEP_SC_INVALID_DATA;
 		}
 	}
