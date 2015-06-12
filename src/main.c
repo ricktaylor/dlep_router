@@ -25,7 +25,7 @@ static void help()
 {
     printf(
 	"dlep_router - A logging DLEP router\n"
-        "  Version 0.1.0\n"
+        "  Version 0.1.1\n"
         "  Copyright (c) 2014 Airbus DS Limited\n\n"
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
 	srand(time(NULL) ^ getpid());
 
 	printf(	"dlep_router - A logging DLEP router\n"
-	        "  Version 0.1.0\n"
+	        "  Version 0.1.1\n"
 	        "  Copyright (c) 2014 Airbus DS Limited\n\n");
 
 	/* Loop forever */
