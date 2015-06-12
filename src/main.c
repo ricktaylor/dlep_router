@@ -30,10 +30,10 @@ static void help()
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
-    	"  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
-	"  -I or --interface <I> Bind the discovery to interface I, requires root\n"
-    	"  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
-	"  -h or --help          Show this text\n");
+        "  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
+        "  -I or --interface <I> Bind the discovery to interface I, requires root\n"
+        "  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
+        "  -h or --help          Show this text\n");
 }
 
 int main(int argc, char* argv[])
@@ -122,19 +122,35 @@ int main(int argc, char* argv[])
 		}
 
 		/* Try to parse */
-		if (!use_ipv6 && inet_pton(AF_INET,argv[optind],&address_buffer))
-		{
-			((struct sockaddr_in*)&address)->sin_family = AF_INET;
-			((struct sockaddr_in*)&address)->sin_port = htons(port);
-			address_length = sizeof(struct sockaddr_in);
-			memcpy(&((struct sockaddr_in*)&address)->sin_addr,address_buffer,4);
-		}
-		else if (use_ipv6 && inet_pton(AF_INET6,argv[optind],&address_buffer))
+		if (use_ipv6 || inet_pton(AF_INET6,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in6*)&address)->sin6_family = AF_INET6;
 			((struct sockaddr_in6*)&address)->sin6_port = htons(port);
 			address_length = sizeof(struct sockaddr_in6);
 			memcpy(&((struct sockaddr_in6*)&address)->sin6_addr,address_buffer,16);
+
+			/* IPv6 Link-local requires and interface index */
+			if (IN6_IS_ADDR_MULTICAST(&((struct sockaddr_in6*)&address)->sin6_addr.s6_addr))
+			{
+				if (!iface)
+				{
+					printf("Interface name required with IPv6 link-local modem address, use -I\n");
+					return EXIT_FAILURE;
+				}
+
+				((struct sockaddr_in6*)&address)->sin6_scope_id = if_nametoindex(iface);
+			}
+
+			use_ipv6 = 1;
+		}
+		else if (!use_ipv6 || inet_pton(AF_INET,argv[optind],&address_buffer))
+		{
+			((struct sockaddr_in*)&address)->sin_family = AF_INET;
+			((struct sockaddr_in*)&address)->sin_port = htons(port);
+			address_length = sizeof(struct sockaddr_in);
+			memcpy(&((struct sockaddr_in*)&address)->sin_addr,address_buffer,4);
+
+			use_ipv6 = 0;
 		}
 		else
 		{

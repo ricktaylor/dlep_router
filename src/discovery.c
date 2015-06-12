@@ -222,7 +222,7 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_
 	return ret;
 }
 
-static int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
+static int discover_ipv6(int s, const char* iface, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
 {
 	int ret = 0;
 
@@ -251,10 +251,15 @@ static int discover_ipv6(int s, struct sockaddr_storage* modem_address, socklen_
 			discovery_address.sin6_family = AF_INET6;
 			discovery_address.sin6_port = htons(DLEP_WELL_KNOWN_MULTICAST_PORT);
 			inet_pton(AF_INET6,DLEP_WELL_KNOWN_MULTICAST_ADDRESS_6,&discovery_address.sin6_addr);
+			if (iface)
+				discovery_address.sin6_scope_id = if_nametoindex(iface);
 
 			/* Do the discovery */
 			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
+			{
+				((struct sockaddr_in6*)modem_address)->sin6_scope_id = discovery_address.sin6_scope_id;
 				ret = 1;
+			}
 		}
 	}
 
@@ -266,7 +271,7 @@ int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ 
 	int ret = 0;
 
 	/* Create a UDP socket */
-	int s = socket(AF_INET,SOCK_DGRAM,0);
+	int s = socket(use_ipv6 ? AF_INET6 : AF_INET,SOCK_DGRAM,0);
 	if (s == -1)
 	{
 		printf("Failed to create socket: %s\n",strerror(errno));
@@ -290,7 +295,7 @@ int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ 
 		if (ret)
 		{
 			if (use_ipv6)
-				ret = discover_ipv6(s,modem_address,modem_address_length,heartbeat_interval);
+				ret = discover_ipv6(s,iface,modem_address,modem_address_length,heartbeat_interval);
 			else
 				ret = discover_ipv4(s,modem_address,modem_address_length,heartbeat_interval);
 		}
