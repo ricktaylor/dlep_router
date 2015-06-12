@@ -318,9 +318,9 @@ static enum dlep_status_code check_signal(const uint8_t* msg, size_t len, unsign
 	else
 	{
 		uint16_t reported_len = get_uint16(msg+1);
-		if (reported_len != len)
+		if (reported_len + 3 != len)
 		{
-			printf("%s signal length %u does not match received packet length %u\n",name,reported_len,(unsigned int)len);
+			printf("%s signal length %u + header length does not match received packet length %u\n",name,reported_len,(unsigned int)len);
 			sc = DLEP_SC_INVALID_DATA;
 		}
 	}
