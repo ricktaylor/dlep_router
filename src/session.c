@@ -50,7 +50,7 @@ static int send_peer_init_signal(int s, uint16_t router_heartbeat_interval)
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Peer Initialization signal\n");
 
@@ -83,7 +83,7 @@ static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Heartbeat signal\n");
 
@@ -111,7 +111,7 @@ static void send_peer_term(int s, enum dlep_status_code sc)
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Peer Termination signal\n");
 
@@ -139,7 +139,7 @@ static void send_peer_term_ack(int s, enum dlep_status_code sc)
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Peer Termination ACK signal\n");
 
@@ -173,7 +173,7 @@ static void send_destination_up_ack(int s, const uint8_t* mac, enum dlep_status_
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Destination Up ACK signal\n");
 
@@ -207,7 +207,7 @@ static void send_destination_down_ack(int s, const uint8_t* mac, enum dlep_statu
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Destination Down ACK signal\n");
 
@@ -241,7 +241,7 @@ static void send_link_char_request_ack(int s, const uint8_t* mac, enum dlep_stat
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Link Characteristics ACK signal\n");
 
@@ -582,7 +582,7 @@ static void parse_destination_update_signal(const uint8_t* tlvs, size_t len)
 	}
 }
 
-static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_heartbeat_interval)
+static int handle_signal(int s, const uint8_t* msg, size_t len)
 {
 	enum dlep_status_code sc = DLEP_SC_SUCCESS;
 	if (len < 3)
@@ -699,15 +699,7 @@ static int handle_signal(int s, const uint8_t* msg, size_t len, uint16_t* modem_
 			sc = check_heartbeat_signal(msg,len);
 			if (sc == DLEP_SC_SUCCESS)
 			{
-				uint16_t hb = get_uint16(msg+5);
-
 				printf("Received Heartbeat signal from modem\n");
-
-				if (hb != *modem_heartbeat_interval)
-				{
-					printf("Modem Heartbeat Interval changed to %u secs\n",hb);
-					*modem_heartbeat_interval = hb;
-				}
 			}
 			break;
 
@@ -755,7 +747,6 @@ static ssize_t recv_signal(int s, uint8_t** msg)
 		if (reported_len)
 		{
 			/* Make more room in the message buffer */
-			new_msg = realloc(*msg,reported_len);
 			if (!new_msg)
 			{
 				int err = errno;
@@ -767,7 +758,7 @@ static ssize_t recv_signal(int s, uint8_t** msg)
 			*msg = new_msg;
 
 			/* Receive the rest of the signal */
-			received = recv(s,(*msg)+3,reported_len - 3,0);
+			received = recv(s,(*msg)+3,reported_len,0);
 			if (received == -1)
 				return -1;
 
@@ -858,7 +849,7 @@ static void in_session(int s, uint8_t* msg, uint16_t modem_heartbeat_interval, u
 		clock_gettime(CLOCK_MONOTONIC,&last_recv_time);
 
 		/* Handle the signal */
-		if (!handle_signal(s,msg,received,&modem_heartbeat_interval))
+		if (!handle_signal(s,msg,received))
 			break;
 	}
 }
@@ -900,7 +891,7 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 			printf("Received possible Peer Initialization ACK signal (%u bytes)\n",(unsigned int)received);
 
 			/* Check it's a valid Peer Initialization ACK signal */
-			if (check_peer_init_ack_signal(msg,received))
+			if (!check_peer_init_ack_signal(msg,received))
 			{
 				enum dlep_status_code init_sc = DLEP_SC_SUCCESS;
 				enum dlep_status_code sc = parse_peer_init_ack_signal(msg+3,received-3,&modem_heartbeat_interval,&init_sc);

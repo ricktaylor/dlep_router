@@ -43,7 +43,7 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len,msg+1);
+	set_uint16(msg_len-3,msg+1);
 
 	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));
 
@@ -114,7 +114,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			return 0;
 
 		/* Validate the signal */
-		if (len && !check_peer_offer_signal(msg,len))
+		if (len && check_peer_offer_signal(msg,len))
 			len = 0;
 	}
 
