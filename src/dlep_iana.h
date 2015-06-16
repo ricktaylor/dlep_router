@@ -44,7 +44,11 @@ enum dlep_signals {
   DLEP_DEST_UPDATE                  = 12,
   DLEP_PEER_HEARTBEAT               = 13,
   DLEP_LINK_CHAR_REQ                = 14,
-  DLEP_LINK_CHAR_ACK                = 15
+  DLEP_LINK_CHAR_ACK                = 15,
+
+  /* A bank of experimental signals */
+  DLEP_EXPERIMENTAL_SIGNAL_FIRST   = 248,
+  DLEP_EXPERIMENTAL_SIGNAL_LAST    = 255
 };
 
 /* The TLV discriminators - The values are NOT final */
@@ -71,9 +75,13 @@ enum dlep_tlvs {
   DLEP_REST_TLV                = 19,
   DLEP_RLQR_TLV                = 20,
   DLEP_RLQT_TLV                = 21,
-  DLEP_LINK_CHAR_ACK_TIMER_TLV = 22
+  DLEP_LINK_CHAR_ACK_TIMER_TLV = 22,
 
   /* No credit-windowing support */
+
+  /* A bank of experimental data items */
+  DLEP_EXPERIMENTAL_TLV_FIRST   = 248,
+  DLEP_EXPERIMENTAL_TLV_LAST    = 255
 };
 
 /* The DLEP Status Codes - The values are NOT final */
