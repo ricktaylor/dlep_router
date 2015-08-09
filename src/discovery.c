@@ -31,8 +31,8 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	/* Write out our version */
 	tlv[0] = DLEP_VERSION_TLV;
 	tlv[1] = 4;
-	set_uint16(DLEP_MAJOR_VERSION,tlv + 2);
-	set_uint16(DLEP_MINOR_VERSION,tlv + 4);
+	write_uint16(DLEP_MAJOR_VERSION,tlv + 2);
+	write_uint16(DLEP_MINOR_VERSION,tlv + 4);
 	tlv += tlv[1] + 2;
 
 	/* Write out Peer Type */
@@ -43,7 +43,7 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 
 	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
 	msg_len = tlv - msg;
-	set_uint16(msg_len-3,msg+1);
+	write_uint16(msg_len-3,msg+1);
 
 	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));
 
@@ -137,7 +137,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			*modem_address_length = sizeof(struct sockaddr_in);
 			printf("  IPv4 address: %s\n",inet_ntop(AF_INET,tlv+2,peer_address,sizeof(peer_address)));
 			if (tlv[1] == 6)
-				port = get_uint16(tlv+6);
+				port = read_uint16(tlv+6);
 			else
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
@@ -149,7 +149,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 			*modem_address_length = sizeof(struct sockaddr_in6);
 			printf("  IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+2,peer_address,sizeof(peer_address)));
 			if (tlv[1] == 18)
-				port = get_uint16(tlv+18);
+				port = read_uint16(tlv+18);
 			else
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);

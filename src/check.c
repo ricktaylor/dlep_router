@@ -24,8 +24,8 @@ static enum dlep_status_code check_version(const uint8_t* tlv)
 	enum dlep_status_code sc = check_length(tlv,4,"DLEP Version");
 	if (sc == DLEP_SC_SUCCESS)
 	{
-		uint16_t major = get_uint16(tlv+2);
-		uint16_t minor = get_uint16(tlv+4);
+		uint16_t major = read_uint16(tlv+2);
+		uint16_t minor = read_uint16(tlv+4);
 
 		if (major == 1 || minor == 0)
 		{
@@ -317,7 +317,7 @@ static enum dlep_status_code check_signal(const uint8_t* msg, size_t len, unsign
 	}
 	else
 	{
-		uint16_t reported_len = get_uint16(msg+1);
+		uint16_t reported_len = read_uint16(msg+1);
 		if (reported_len + 3 != len)
 		{
 			printf("%s signal length %u + header length does not match received packet length %u\n",name,reported_len,(unsigned int)len);
@@ -516,7 +516,7 @@ enum dlep_status_code check_peer_offer_signal(const uint8_t* msg, size_t len)
 enum dlep_status_code check_peer_init_ack_signal(const uint8_t* msg, size_t len)
 {
 	/* Validate the signal */
-	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_INIT_ACK,"Peer Initialization ACK");
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_SESSION_INIT_ACK,"Peer Initialization ACK");
 	if (sc == DLEP_SC_SUCCESS)
 	{
 		int seen_heartbeat = 0;
@@ -805,7 +805,7 @@ enum dlep_status_code check_heartbeat_signal(const uint8_t* msg, size_t len)
 
 enum dlep_status_code check_peer_term_signal(const uint8_t* msg, size_t len)
 {
-	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_TERM,"Peer Termination");
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_SESSION_TERM,"Peer Termination");
 	if (sc == DLEP_SC_SUCCESS)
 	{
 		int seen_status = 0;
@@ -851,7 +851,7 @@ enum dlep_status_code check_peer_term_signal(const uint8_t* msg, size_t len)
 
 enum dlep_status_code check_peer_update_signal(const uint8_t* msg, size_t len)
 {
-	enum dlep_status_code sc = check_signal(msg,len,DLEP_PEER_UPDATE,"Peer Update");
+	enum dlep_status_code sc = check_signal(msg,len,DLEP_SESSION_UPDATE,"Peer Update");
 	if (sc == DLEP_SC_SUCCESS)
 	{
 		int seen_mdrr = 0;

@@ -10,7 +10,7 @@ Copyright (c) 2014 Airbus DS Limited
 #include <stdlib.h>
 #include <stdio.h>
 
-uint16_t get_uint16(const uint8_t* p)
+uint16_t read_uint16(const uint8_t* p)
 {
 	/* Avoid ntohs() due to unaligned access issues on some architectures */
 	uint16_t v = *p++;
@@ -18,14 +18,16 @@ uint16_t get_uint16(const uint8_t* p)
 	return v;
 }
 
-void set_uint16(uint16_t v, uint8_t* p)
+uint8_t* write_uint16(uint16_t v, uint8_t* p)
 {
 	/* Avoid htons() due to unaligned access issues on some architectures */
 	p[0] = v >> 8;
 	p[1] = v & 0xFF;
+
+	return p+2;
 }
 
-uint32_t get_uint32(const uint8_t* p)
+uint32_t read_uint32(const uint8_t* p)
 {
 	/* Avoid ntohl() due to unaligned access issues on some architectures */
 	uint32_t v = *p++;
@@ -35,7 +37,7 @@ uint32_t get_uint32(const uint8_t* p)
 	return v;
 }
 
-uint64_t get_uint64(const uint8_t* p)
+uint64_t read_uint64(const uint8_t* p)
 {
 	uint64_t v = *p++;
 	v = (v << 8) | *p++;
