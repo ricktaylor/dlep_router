@@ -19,31 +19,35 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 {
 	char str_address[FORMATADDRESS_LEN] = {0};
 	uint8_t msg[25];
-	uint8_t* tlv;
+	uint8_t* p;
 	uint16_t msg_len = 0;
+	size_t peer_type_len = 0;
 
-	/* Octet 0 is the signal number */
-	msg[0] = DLEP_PEER_DISCOVERY;
+	/* All DLEP signals start with the 4 characters 'DLEP' */
+	msg[0] = 'D';
+	msg[1] = 'L';
+	msg[2] = 'E';
+	msg[3] = 'P';
 
-	/* Data items start at octet 3 */
-	tlv = msg + 3;
+	/* Octets 4 and 5 are the signal number */
+	p = write_uint16(DLEP_PEER_DISCOVERY,msg+4);
 
-	/* Write out our version */
-	tlv[0] = DLEP_VERSION_TLV;
-	tlv[1] = 4;
-	write_uint16(DLEP_MAJOR_VERSION,tlv + 2);
-	write_uint16(DLEP_MINOR_VERSION,tlv + 4);
-	tlv += tlv[1] + 2;
+	/* Octets 6 and 7 are the signal length, initialize to 0 */
+	p = write_uint16(0,p);
 
 	/* Write out Peer Type */
-	tlv[0] = DLEP_PEER_TYPE_TLV;
-	strcpy((char*)(tlv+2),PEER_TYPE);
-	tlv[1] = strlen((char*)(tlv+2));
-	tlv += tlv[1] + 2;
+	peer_type_len = strlen(PEER_TYPE);
+	if (peer_type_len)
+	{
+		p = write_uint16(DLEP_PEER_TYPE_DATA_ITEM,p);
+		p = write_uint16(peer_type_len,p);
+		memcpy(p,PEER_TYPE,peer_type_len);
+	}
 
-	/* Octet 1 and 2 are the 16bit length of the signal in network byte order */
-	msg_len = tlv - msg;
-	write_uint16(msg_len-3,msg+1);
+	msg_len = p - msg;
+
+	/* Octet 6 and 7 are the signal length, minus the length of the header */
+	write_uint16(msg_len - 4,msg + 6);
 
 	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));
 
@@ -97,7 +101,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 {
 	uint8_t msg[1500];
 	ssize_t len = 0;
-	const uint8_t* tlv;
+	const uint8_t* data_item;
 	char peer_address[INET6_ADDRSTRLEN] = {0};
 	uint16_t port = 0;
 
@@ -120,36 +124,46 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 
 	printf("Valid Peer Offer signal from modem\n");
 
-	/* The signal has been validated so just scan for the relevant tlvs */
+	/* The signal has been validated so just scan for the relevant data_items */
 	modem_address->ss_family = 0;
-	for (tlv = msg + 3; tlv < msg + len; tlv += tlv[1] + 2 /* Octet 1 is the TLV length */)
+
+	data_item = msg + 4;
+	while (data_item < msg + len)
 	{
-		/* Octet 0 is the TLV type */
-		switch ((enum dlep_tlvs)tlv[0])
+		/* Octets 0 and 1 are the data item type */
+		enum dlep_data_item item_id = read_uint16(data_item);
+
+		/* Octets 2 and 3 are the data item length */
+		uint16_t item_len = read_uint16(data_item + 2);
+
+		/* Increment data_item to point to the data */
+		data_item += 4;
+
+		switch (item_id)
 		{
-		case DLEP_PEER_TYPE_TLV:
-			printf("  Peer Type: %.*s\n",(int)tlv[1],tlv+2);
+		case DLEP_PEER_TYPE_DATA_ITEM:
+			printf("  Peer Type: %.*s\n",(int)item_len,data_item);
 			break;
 
-		case DLEP_IPV4_CONN_POINT_TLV:
+		case DLEP_IPV4_CONN_POINT_DATA_ITEM:
 			modem_address->ss_family = AF_INET;
-			memcpy(&((struct sockaddr_in*)modem_address)->sin_addr,tlv+2,4);
+			memcpy(&((struct sockaddr_in*)modem_address)->sin_addr,data_item + 1,4);
 			*modem_address_length = sizeof(struct sockaddr_in);
-			printf("  IPv4 address: %s\n",inet_ntop(AF_INET,tlv+2,peer_address,sizeof(peer_address)));
-			if (tlv[1] == 6)
-				port = read_uint16(tlv+6);
+			printf("  IPv4 address: (%s TLS) %s\n",(data_item[0] ? "Use" : "No"),inet_ntop(AF_INET,data_item + 1,peer_address,sizeof(peer_address)));
+			if (item_len == 7)
+				port = read_uint16(data_item + 5);
 			else
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
 			break;
 
-		case DLEP_IPV6_CONN_POINT_TLV:
+		case DLEP_IPV6_CONN_POINT_DATA_ITEM:
 			modem_address->ss_family = AF_INET6;
-			memcpy(&((struct sockaddr_in6*)modem_address)->sin6_addr,tlv+2,16);
+			memcpy(&((struct sockaddr_in6*)modem_address)->sin6_addr,data_item + 1,16);
 			*modem_address_length = sizeof(struct sockaddr_in6);
-			printf("  IPv6 address: %s\n",inet_ntop(AF_INET6,tlv+2,peer_address,sizeof(peer_address)));
-			if (tlv[1] == 18)
-				port = read_uint16(tlv+18);
+			printf("  IPv6 address: (%s TLS) %s\n",(data_item[0] ? "Use" : "No"),inet_ntop(AF_INET6,data_item + 1,peer_address,sizeof(peer_address)));
+			if (item_len == 19)
+				port = read_uint16(data_item + 17);
 			else
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
@@ -158,6 +172,9 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 		default:
 			break;
 		}
+
+		/* Increment data_item to point to the next data item */
+		data_item += item_len;
 	}
 
 	if (!modem_address->ss_family)

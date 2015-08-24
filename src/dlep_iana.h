@@ -28,71 +28,70 @@ Copyright (c) 2014 Airbus DS Limited
 #define DLEP_MINOR_VERSION 14
 
 /* The signal numbers - The values are NOT final */
-enum dlep_signals {
-  DLEP_PEER_DISCOVERY               =  0,
-  DLEP_PEER_OFFER                   =  1,
-  DLEP_SESSION_INIT                    =  2,
-  DLEP_SESSION_INIT_ACK                =  3,
-  DLEP_SESSION_UPDATE                  =  4,
-  DLEP_SESSION_UPDATE_ACK              =  5,
-  DLEP_SESSION_TERM                    =  6,
-  DLEP_SESSION_TERM_ACK                =  7,
-  DLEP_DEST_UP                      =  8,
-  DLEP_DEST_UP_ACK                  =  9,
-  DLEP_DEST_DOWN                    = 10,
-  DLEP_DEST_DOWN_ACK                = 11,
-  DLEP_DEST_UPDATE                  = 12,
-  DLEP_PEER_HEARTBEAT               = 13,
-  DLEP_LINK_CHAR_REQ                = 14,
-  DLEP_LINK_CHAR_ACK                = 15,
-
-  /* A bank of experimental signals */
-  DLEP_EXPERIMENTAL_SIGNAL_FIRST   = 248,
-  DLEP_EXPERIMENTAL_SIGNAL_LAST    = 255
+enum dlep_signal {
+  DLEP_PEER_DISCOVERY               =  1,
+  DLEP_PEER_OFFER                   =  2
 };
 
-/* The TLV discriminators - The values are NOT final */
-enum dlep_tlvs {
-  DLEP_VERSION_TLV             =  0,
-  DLEP_STATUS_TLV              =  1,
-  DLEP_IPV4_CONN_POINT_TLV     =  2,
-  DLEP_IPV6_CONN_POINT_TLV     =  3,
-  DLEP_PEER_TYPE_TLV           =  4,
-  DLEP_PEER_HEARTBEAT_INTERVAL_TLV  =  5,
-  DLEP_EXTS_SUPP_TLV           =  6,
-  DLEP_EXP_DEFNS_TLV           =  7,
-  DLEP_MAC_ADDRESS_TLV         =  8,
-  DLEP_IPV4_ADDRESS_TLV        =  9,
-  DLEP_IPV6_ADDRESS_TLV        = 10,
-  DLEP_IPV4_ATT_SUBNET_TLV     = 11,
-  DLEP_IPV6_ATT_SUBNET_TLV     = 12,
-  DLEP_MDRR_TLV                = 13,
-  DLEP_MDRT_TLV                = 14,
-  DLEP_CDRR_TLV                = 15,
-  DLEP_CDRT_TLV                = 16,
-  DLEP_LATENCY_TLV             = 17,
-  DLEP_RESR_TLV                = 18,
-  DLEP_REST_TLV                = 19,
-  DLEP_RLQR_TLV                = 20,
-  DLEP_RLQT_TLV                = 21,
-  DLEP_LINK_CHAR_ACK_TIMER_TLV = 22,
+/* The message numbers - The values are NOT final */
+enum dlep_message {
+  DLEP_SESSION_INIT                 =  3,
+  DLEP_SESSION_INIT_RESP            =  4,
+  DLEP_SESSION_UPDATE               =  5,
+  DLEP_SESSION_UPDATE_RESP          =  6,
+  DLEP_SESSION_TERM                 =  7,
+  DLEP_SESSION_TERM_RESP            =  8,
+  DLEP_DEST_UP                      =  9,
+  DLEP_DEST_UP_RESP                 = 10,
+  DLEP_DEST_DOWN                    = 11,
+  DLEP_DEST_DOWN_RESP               = 12,
+  DLEP_DEST_UPDATE                  = 13,
+  DLEP_PEER_HEARTBEAT               = 14,
+  DLEP_LINK_CHAR_REQ                = 15,
+  DLEP_LINK_CHAR_RESP               = 16
+};
+
+/* The Data item numbers - The values are NOT final */
+enum dlep_data_item {
+  DLEP_STATUS_DATA_ITEM              =  1,
+  DLEP_IPV4_CONN_POINT_DATA_ITEM     =  2,
+  DLEP_IPV6_CONN_POINT_DATA_ITEM     =  3,
+  DLEP_PEER_TYPE_DATA_ITEM           =  4,
+  DLEP_HEARTBEAT_INTERVAL_DATA_ITEM  =  5,
+  DLEP_EXTS_SUPP_DATA_ITEM           =  6,
+  DLEP_MAC_ADDRESS_DATA_ITEM         =  7,
+  DLEP_IPV4_ADDRESS_DATA_ITEM        =  8,
+  DLEP_IPV6_ADDRESS_DATA_ITEM        =  9,
+  DLEP_IPV4_ATT_SUBNET_DATA_ITEM     = 10,
+  DLEP_IPV6_ATT_SUBNET_DATA_ITEM     = 11,
+  DLEP_MDRR_DATA_ITEM                = 12,
+  DLEP_MDRT_DATA_ITEM                = 13,
+  DLEP_CDRR_DATA_ITEM                = 14,
+  DLEP_CDRT_DATA_ITEM                = 15,
+  DLEP_LATENCY_DATA_ITEM             = 16,
+  DLEP_RESR_DATA_ITEM                = 17,
+  DLEP_REST_DATA_ITEM                = 18,
+  DLEP_RLQR_DATA_ITEM                = 19,
+  DLEP_RLQT_DATA_ITEM                = 20,
+  DLEP_LINK_CHAR_RESP_TIMER_DATA_ITEM = 21,
 
   /* No credit-windowing support */
 
   /* A bank of experimental data items */
-  DLEP_EXPERIMENTAL_TLV_FIRST   = 248,
-  DLEP_EXPERIMENTAL_TLV_LAST    = 255
+  DLEP_EXPERIMENTAL_DATA_ITEM_FIRST   = 65408,
+  DLEP_EXPERIMENTAL_DATA_ITEM_LAST    = 65534
 };
 
 /* The DLEP Status Codes - The values are NOT final */
 enum dlep_status_code {
-  DLEP_SC_SUCCESS              =  0,
-  DLEP_SC_UNKNOWN_SIGNAL       =  1,
-  DLEP_SC_INVALID_DATA         =  2,
-  DLEP_SC_UNEXPECTED_SIGNAL    =  3,
-  DLEP_SC_REQUEST_DENIED       =  4,
-  DLEP_SC_TIMEDOUT             =  5,
-  DLEP_SC_INVALID_DEST         =  6
+  DLEP_SC_SUCCESS              =   0,
+  DLEP_SC_UNKNOWN_MESSAGE      =   1,
+  DLEP_SC_UNEXPECTED_MESSAGE   =   2,
+  DLEP_SC_INVALID_DATA         =   3,
+  DLEP_SC_INVALID_DEST         =   4,
+  DLEP_SC_NOT_INTERESTED       = 100,
+  DLEP_SC_REQUEST_DENIED       = 101,
+  DLEP_SC_TIMEDOUT             = 102
 };
 
 /* Other, non-IANA, dlep_router default values */
