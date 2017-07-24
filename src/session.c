@@ -14,8 +14,10 @@ Copyright (c) 2014 Airbus DS Limited
 #include <errno.h>
 #include <sys/socket.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #include "./dlep_iana.h"
+#include "./check.h"
 
 static uint8_t* write_message_header(uint8_t* msg, uint16_t msg_type)
 {
@@ -46,25 +48,35 @@ static uint8_t* write_status_code(uint8_t* msg, enum dlep_status_code sc)
 	return msg;
 }
 
-static int send_session_init_message(int s, uint16_t router_heartbeat_interval)
+/* static int send_session_init_message(int s, uint16_t router_heartbeat_interval) */
+static int send_session_init_message(int s, uint32_t router_heartbeat_interval)
 {
 	uint8_t msg[300];
 	uint16_t msg_len = 0;
 	size_t peer_type_len = 0;
 
 	/* Write the message header */
-	uint8_t* p = write_message_header(msg,DLEP_SESSION_INIT);
+	uint8_t* p = NULL;
+
+	p = write_message_header(msg,DLEP_SESSION_INIT);
 
 	/* Write out our Heartbeat Interval */
-	p = write_data_item(p,DLEP_HEARTBEAT_INTERVAL_DATA_ITEM,2);
-	p = write_uint16(router_heartbeat_interval,p);
+	p = write_data_item(p,DLEP_HEARTBEAT_INTERVAL_DATA_ITEM,4);
+	/*p = write_uint16(router_heartbeat_interval,p); */
+	p = write_uint32(router_heartbeat_interval,p); 
 
 	/* Write out Peer Type */
 	peer_type_len = strlen(PEER_TYPE);
 	if (peer_type_len)
 	{
-		p = write_data_item(p,DLEP_PEER_TYPE_DATA_ITEM,peer_type_len);
-		memcpy(p,PEER_TYPE,peer_type_len);
+                uint8_t flags = 0;
+
+		p = write_data_item(p,DLEP_PEER_TYPE_DATA_ITEM, 1+ peer_type_len);  /* includes length of the flag + description fields */
+                p[0] = flags;
+                p++;
+
+                memcpy(p, PEER_TYPE, peer_type_len);
+                p+= peer_type_len;
 	}
 
 	msg_len = p - msg;
@@ -97,7 +109,7 @@ static void send_heartbeat(int s, uint16_t router_heartbeat_interval)
 	write_uint16(msg_len - 4,msg + 2);
 
 	printf("Sending Heartbeat message\n");
-
+  
 	if (send(s,msg,msg_len,0) != msg_len)
 		printf("Failed to send Heartbeat message: %s\n",strerror(errno));
 }
@@ -320,7 +332,8 @@ static enum dlep_status_code parse_session_init_resp_message(const uint8_t* data
 			break;
 
 		case DLEP_LATENCY_DATA_ITEM:
-			printf("  Default Latency: %"PRIu32"\x03\xBCs\n",read_uint32(data_item));
+			/*printf("  Default Latency: %"PRIu32"\x03\xBCs\n",read_uint32(data_item));*/
+			printf("  Default Latency: %"PRIu64"us\n",read_uint64(data_item));
 			break;
 
 		case DLEP_RESR_DATA_ITEM:
@@ -357,6 +370,9 @@ static enum dlep_status_code parse_session_init_resp_message(const uint8_t* data
 				}
 			}
 			break;
+                default:
+                        printf("  Unknown\n");
+                        break;
 		}
 
 		/* Increment data_item to point to the next data item */
@@ -376,8 +392,10 @@ static void parse_address(const uint8_t* data_item, uint16_t item_len)
 
 	if (item_len == 5)
 		printf("IPv4 address: %s\n",inet_ntop(AF_INET,data_item+1,address,sizeof(address)));
+#if 0
 	else
 		printf("IPv6 address: %s\n",inet_ntop(AF_INET6,data_item+1,address,sizeof(address)));
+#endif
 }
 
 static void parse_attached_subnet(const uint8_t* data_item, uint16_t item_len)
@@ -386,8 +404,10 @@ static void parse_attached_subnet(const uint8_t* data_item, uint16_t item_len)
 
 	if (item_len == 5)
 		printf("IPv4 attached subnet: %s/%u\n",inet_ntop(AF_INET,data_item,address,sizeof(address)),(unsigned int)data_item[4]);
+#if 0
 	else
 		printf("IPv6 attached subnet: %s/%u\n",inet_ntop(AF_INET6,data_item,address,sizeof(address)),(unsigned int)data_item[16]);
+#endif
 }
 
 static void parse_session_update_message(const uint8_t* data_items, uint16_t len)
@@ -450,6 +470,9 @@ static void parse_session_update_message(const uint8_t* data_items, uint16_t len
 		case DLEP_RLQT_DATA_ITEM:
 			printf("  Session RLQT: %u\n",data_item[0]);
 			break;
+                default:
+			printf("  Unknown\n");
+                        break;
 		}
 
 		/* Increment data_item to point to the next data item */
@@ -527,6 +550,9 @@ static void parse_destination_up_message(int s, const uint8_t* data_items, uint1
 		case DLEP_RLQT_DATA_ITEM:
 			printf("  RLQT: %u\n",data_item[0]);
 			break;
+                default:
+                        printf("  Unknown\n");
+                        break;
 		}
 
 		/* Increment data_item to point to the next data item */
@@ -603,6 +629,9 @@ static void parse_destination_update_message(const uint8_t* data_items, uint16_t
 		case DLEP_RLQT_DATA_ITEM:
 			printf("  RLQT: %u\n",data_item[0]);
 			break;
+                default:
+                        printf("  Unknown\n");
+                        break;
 		}
 
 		/* Increment data_item to point to the next data item */
@@ -680,7 +709,7 @@ static int handle_message(int s, const uint8_t* msg, size_t len)
 			printf("Received Destination Down message from modem:\n");
 
 			/* The message has been validated so just scan for the relevant data_items */
-			printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",msg[9],msg[10],msg[11],msg[12],msg[13],msg[14]);
+			printf("  MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n",msg[8],msg[9],msg[10],msg[11],msg[12],msg[13]);
 
 			send_destination_down_resp(s,mac,0);
 		}
@@ -692,7 +721,8 @@ static int handle_message(int s, const uint8_t* msg, size_t len)
 		break;
 
 	case DLEP_DEST_UPDATE:
-		sc = check_destination_update_message(msg,len,&mac);
+		/* sc = check_destination_update_message(msg,len,&mac); */
+		sc = check_destination_update_message(msg,len);
 		if (sc == DLEP_SC_SUCCESS)
 			parse_destination_update_message(msg+4,msg_len);
 		break;
@@ -771,6 +801,7 @@ static ssize_t recv_message(int s, uint8_t** msg)
 				return -1;
 			}
 
+	                new_msg = realloc(*msg,reported_len+4);
 			*msg = new_msg;
 
 			/* Receive the rest of the message */
@@ -870,7 +901,7 @@ static void in_session(int s, uint8_t* msg, uint16_t modem_heartbeat_interval, u
 	}
 }
 
-void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t modem_heartbeat_interval, /* [int] */ uint16_t router_heartbeat_interval)
+void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t modem_heartbeat_interval, /* [int] */ uint32_t router_heartbeat_interval)
 {
 	char str_address[FORMATADDRESS_LEN] = {0};
 
@@ -888,10 +919,11 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 	if (connect(s,modem_address,modem_address_length) == -1)
 	{
 		printf("Failed to connect socket: %s\n",strerror(errno));
+exit(1);
 	}
 	else if (send_session_init_message(s,router_heartbeat_interval))
 	{
-		uint8_t* msg = NULL;
+		uint8_t* msg = malloc(4);
 		ssize_t received;
 
 		printf("Waiting for Session Initialization Response message\n");
@@ -904,10 +936,12 @@ void session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ sockle
 			printf("Modem disconnected TCP session\n");
 		else
 		{
+                        int terminate = 0;
+
 			printf("Received possible Session Initialization Response message (%u bytes)\n",(unsigned int)received);
 
 			/* Check it's a valid Session Initialization Response message */
-			if (!check_session_init_resp_message(msg,received))
+			if (!check_session_init_resp_message(msg,received, &terminate))
 			{
 				enum dlep_status_code init_sc = DLEP_SC_SUCCESS;
 				enum dlep_status_code sc = parse_session_init_resp_message(msg+4,received-4,&modem_heartbeat_interval,&init_sc);

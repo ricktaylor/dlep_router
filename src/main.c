@@ -12,14 +12,17 @@ Copyright (c) 2014 Airbus DS Limited
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include <net/if.h>
 
 #include "./dlep_iana.h"
 
 /* Defined in discovery.c */
-int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint16_t* heartbeat_interval);
+int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint32_t* heartbeat_interval);
 
 /* Defined in session.c */
-int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint16_t modem_heartbeat_interval, /* [int] */ uint16_t router_heartbeat_interval);
+int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint32_t modem_heartbeat_interval, /* [int] */ uint32_t router_heartbeat_interval);
 
 static void help()
 {
@@ -30,7 +33,9 @@ static void help()
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
+#if 0
         "  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
+#endif
         "  -I or --interface <I> Bind the discovery to interface I, requires root\n"
         "  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
         "  -h or --help          Show this text\n");
@@ -43,7 +48,9 @@ int main(int argc, char* argv[])
 		{ "heartbeat",1,NULL,'H' },
 		{ "interface",1,NULL,'I' },
 		{ "help",0,NULL,'h' },
+#if 0
 		{ "ipv6",0,NULL,'6' },
+#endif
 		{ 0 }
 	};
 
@@ -52,7 +59,8 @@ int main(int argc, char* argv[])
 	int use_ipv6 = 0;
 	struct sockaddr_storage address = {0};
 	socklen_t address_length = 0;
-	uint16_t router_heartbeat_interval = 0;
+	/*uint16_t router_heartbeat_interval = 0; */
+	uint32_t router_heartbeat_interval = 15;
 	const char* iface = NULL;
 
 	/* Disable getopt's error messages */
@@ -66,11 +74,11 @@ int main(int argc, char* argv[])
 		case 'I':
 			iface = optarg;
 			break;
-
+#if 0
 		case '6':
 			use_ipv6 = 1;
 			break;
-
+#endif
 		case 'H':
 			router_heartbeat_interval = strtoul(optarg,NULL,10);
 			break;
@@ -122,6 +130,7 @@ int main(int argc, char* argv[])
 		}
 
 		/* Try to parse */
+#if 0
 		if (use_ipv6 || inet_pton(AF_INET6,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in6*)&address)->sin6_family = AF_INET6;
@@ -143,7 +152,8 @@ int main(int argc, char* argv[])
 
 			use_ipv6 = 1;
 		}
-		else if (!use_ipv6 || inet_pton(AF_INET,argv[optind],&address_buffer))
+#endif
+		if (!use_ipv6 || inet_pton(AF_INET,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in*)&address)->sin_family = AF_INET;
 			((struct sockaddr_in*)&address)->sin_port = htons(port);
@@ -169,7 +179,7 @@ int main(int argc, char* argv[])
 	/* Loop forever */
 	for (;;)
 	{
-		uint16_t modem_heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
+		uint32_t modem_heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
 
 		if (optind == argc)
 		{

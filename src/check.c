@@ -5,9 +5,13 @@ Copyright (c) 2014 Airbus DS Limited
 */
 
 #include <stdio.h>
+#include <string.h>
+
 #include <arpa/inet.h>
+#include <stdlib.h>
 
 #include "./dlep_iana.h"
+#include "./util.h"
 
 static enum dlep_status_code check_length(uint16_t item_len, unsigned int expected_len, const char* name)
 {
@@ -22,7 +26,11 @@ static enum dlep_status_code check_length(uint16_t item_len, unsigned int expect
 static enum dlep_status_code check_peer_type(const uint8_t* data_item, uint16_t item_len)
 {
 	size_t i = 0;
-	for (; i < item_len - 1; ++i)
+
+/* ignore the first field, as it's a Flags field */
+
+/*	for (i=0; i < (item_len - 1); ++i) */
+	for (i=1; i < (item_len); ++i)
 	{
 		/* Check for NUL */
 		if (data_item[i] == 0)
@@ -36,13 +44,15 @@ static enum dlep_status_code check_peer_type(const uint8_t* data_item, uint16_t 
 	return DLEP_SC_SUCCESS;
 }
 
-static enum dlep_status_code check_heartbeat_interval(const uint8_t* data_item, uint16_t item_len)
+/*static enum dlep_status_code check_heartbeat_interval(const uint8_t* data_item, uint16_t item_len) */
+static enum dlep_status_code check_heartbeat_interval(const uint8_t* data_item, uint32_t item_len)
 {
-	return check_length(item_len,2,"Heartbeat Interval");
+	return check_length(item_len,4,"Heartbeat Interval");
 }
 
 static enum dlep_status_code check_ipv4_connection_point(const uint8_t* data_item, uint16_t item_len)
 {
+/*printf("check_ipv4_connection_point...\n"); */
 	if (item_len != 5 && item_len != 7)
 	{
 		printf("Incorrect length in IPv4 Connection Point data item: %u, expected 5 or 7\n",item_len);
@@ -149,7 +159,8 @@ static enum dlep_status_code check_cdrt(const uint8_t* data_item, uint16_t item_
 
 static enum dlep_status_code check_latency(const uint8_t* data_item, uint16_t item_len)
 {
-	return check_length(item_len,4,"Latency");
+	/*return check_length(item_len,4,"Latency");*/
+	return check_length(item_len,8,"Latency");
 }
 
 static enum dlep_status_code check_resr(const uint8_t* data_item, uint16_t item_len)
@@ -235,7 +246,8 @@ static enum dlep_status_code check_extensions_supported(const uint8_t* data_item
 
 static enum dlep_status_code check_status(const uint8_t* data_item, uint16_t item_len, int* terminate)
 {
-	enum dlep_status_code sc = check_length(item_len,1,"Status data item");
+	/* enum dlep_status_code sc = check_length(item_len,1,"Status data item"); */
+	enum dlep_status_code sc = check_length(item_len,item_len,"Status data item"); /* variable length, so can't be determined if correct or not */
 
 	*terminate = 1;
 
@@ -392,6 +404,8 @@ static void printf_unexpected_data_item(const char* name, enum dlep_data_item it
 	case DLEP_LINK_CHAR_RESP_TIMER_DATA_ITEM:
 		data_item_text = "Link Characteristics Response Timer";
 		break;
+        default:
+             break;
 	}
 
 	if (data_item_text)
@@ -432,14 +446,16 @@ enum dlep_status_code check_peer_offer_signal(const uint8_t* msg, size_t len)
 			}
 		}
 	}
+
 	if (sc == DLEP_SC_SUCCESS)
 	{
 		int seen_ip_conn_pt = 0;
 		int seen_peer_type = 0;
-		int seen_version = 0;
+		//int seen_version = 0;
 
 		/* Check for mandatory data items */
-		const uint8_t* data_item = msg + 4;
+		/*const uint8_t* data_item = msg + 4; */
+		const uint8_t* data_item = msg + 8;
 		while (data_item < msg + len && sc == DLEP_SC_SUCCESS)
 		{
 			/* Octets 0 and 1 are the data item type */
@@ -450,6 +466,7 @@ enum dlep_status_code check_peer_offer_signal(const uint8_t* msg, size_t len)
 
 			/* Increment data_item to point to the data */
 			data_item += 4;
+			/*data_item += 1; flag field */
 
 			switch (item_id)
 			{
@@ -490,14 +507,16 @@ enum dlep_status_code check_peer_offer_signal(const uint8_t* msg, size_t len)
 		{
 			if (data_item != msg + len)
 			{
-				printf("Signal length does not equal sum of data item lengths in Peer Offer signal\n");
+	     			printf("Signal length does not equal sum of data item lengths in Peer Offer signal\n");
 				sc = DLEP_SC_INVALID_DATA;
 			}
+/*
 			else if (!seen_version)
 			{
 				printf("Missing mandatory DLEP Version data item in Peer Offer signal\n");
 				sc = DLEP_SC_INVALID_DATA;
 			}
+*/
 			else if (!seen_ip_conn_pt)
 			{
 				printf("Missing IPv4 or IPv6 connection point data item in Peer Offer signal\n");
@@ -512,6 +531,7 @@ enum dlep_status_code check_session_init_resp_message(const uint8_t* msg, size_t
 {
 	/* Validate the message */
 	enum dlep_status_code sc = check_message(msg,len,DLEP_SESSION_INIT_RESP,"Session Initialization Response");
+
 	if (sc == DLEP_SC_SUCCESS)
 	{
 		int seen_heartbeat = 0;
@@ -526,11 +546,12 @@ enum dlep_status_code check_session_init_resp_message(const uint8_t* msg, size_t
 		int seen_rlqt = 0;
 		int seen_status = 0;
 		int seen_peer_type = 0;
-		int seen_version = 0;
+		//int seen_version = 0;
 		int seen_exts_supported = 0;
 
 		/* Check for mandatory data items */
 		const uint8_t* data_item = msg + 4;
+
 		while (data_item < msg + len && sc == DLEP_SC_SUCCESS)
 		{
 			/* Octets 0 and 1 are the data item type */
@@ -730,11 +751,13 @@ enum dlep_status_code check_session_init_resp_message(const uint8_t* msg, size_t
 				printf("Signal length does not equal sum of data item lengths in Session Initialization Response message\n");
 				sc = DLEP_SC_INVALID_DATA;
 			}
+/*
 			else if (!seen_version)
 			{
 				printf("Missing mandatory DLEP Version data item in Session Initialization Response message\n");
 				sc = DLEP_SC_INVALID_DATA;
 			}
+*/
 			else if (!seen_heartbeat)
 			{
 				printf("Missing mandatory Heartbeat Interval data item in Session Initialization Response message\n");

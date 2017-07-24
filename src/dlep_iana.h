@@ -14,7 +14,8 @@ Copyright (c) 2014 Airbus DS Limited
 #define DLEP_IANA_H_
 
 /* The well-known multicast address for modem discovery */
-#define DLEP_WELL_KNOWN_MULTICAST_ADDRESS "224.0.0.109"
+/*#define DLEP_WELL_KNOWN_MULTICAST_ADDRESS "224.0.0.109" */
+#define DLEP_WELL_KNOWN_MULTICAST_ADDRESS "224.0.0.117"
 #define DLEP_WELL_KNOWN_MULTICAST_ADDRESS_6 "FF02::6D"
 
 /* The well-known port for modem discovery */
@@ -35,20 +36,20 @@ enum dlep_signal {
 
 /* The message numbers - The values are NOT final */
 enum dlep_message {
-  DLEP_SESSION_INIT                 =  3,
-  DLEP_SESSION_INIT_RESP            =  4,
-  DLEP_SESSION_UPDATE               =  5,
-  DLEP_SESSION_UPDATE_RESP          =  6,
-  DLEP_SESSION_TERM                 =  7,
-  DLEP_SESSION_TERM_RESP            =  8,
-  DLEP_DEST_UP                      =  9,
-  DLEP_DEST_UP_RESP                 = 10,
+  DLEP_SESSION_INIT                 =  1,
+  DLEP_SESSION_INIT_RESP            =  2,
+  DLEP_SESSION_UPDATE               =  3,
+  DLEP_SESSION_UPDATE_RESP          =  4,
+  DLEP_SESSION_TERM                 =  5,
+  DLEP_SESSION_TERM_RESP            =  6,
+  DLEP_DEST_UP                      =  7,
+  DLEP_DEST_UP_RESP                 =  8,
   DLEP_DEST_DOWN                    = 11,
   DLEP_DEST_DOWN_RESP               = 12,
   DLEP_DEST_UPDATE                  = 13,
-  DLEP_PEER_HEARTBEAT               = 14,
-  DLEP_LINK_CHAR_REQ                = 15,
-  DLEP_LINK_CHAR_RESP               = 16
+  DLEP_LINK_CHAR_REQ                = 14,
+  DLEP_LINK_CHAR_RESP               = 15,
+  DLEP_PEER_HEARTBEAT               = 16
 };
 
 /* The Data item numbers - The values are NOT final */

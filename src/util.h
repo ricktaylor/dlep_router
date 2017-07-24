@@ -13,10 +13,16 @@ Copyright (c) 2014 Airbus DS Limited
 #include <stdint.h>
 #include <arpa/inet.h>
 
+#ifndef INET6_ADDRSTRLEN
+#define INET6_ADDRSTRLEN 46
+#endif
+
 uint16_t read_uint16(const uint8_t* p);
 uint8_t* write_uint16(uint16_t v, uint8_t* p);
 
 uint32_t read_uint32(const uint8_t* p);
+uint8_t* write_uint32(uint32_t v, uint8_t* p);
+
 uint64_t read_uint64(const uint8_t* p);
 
 #define FORMATADDRESS_LEN INET6_ADDRSTRLEN+6

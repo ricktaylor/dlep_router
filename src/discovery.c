@@ -10,6 +10,9 @@ Copyright (c) 2014 Airbus DS Limited
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <net/if.h>
 
 #include "./dlep_iana.h"
 #include "./check.h"
@@ -18,10 +21,11 @@ Copyright (c) 2014 Airbus DS Limited
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {
 	char str_address[FORMATADDRESS_LEN] = {0};
-	uint8_t msg[25];
+	uint8_t msg[100];
 	uint8_t* p;
 	uint16_t msg_len = 0;
 	size_t peer_type_len = 0;
+	uint8_t flags = 0x00;
 
 	/* All DLEP signals start with the 4 characters 'DLEP' */
 	msg[0] = 'D';
@@ -40,14 +44,21 @@ static int send_peer_discovery_signal(int s, const struct sockaddr* address, soc
 	if (peer_type_len)
 	{
 		p = write_uint16(DLEP_PEER_TYPE_DATA_ITEM,p);
-		p = write_uint16(peer_type_len,p);
+		p = write_uint16(1 + peer_type_len,p); /* includes length of the flag + description fields */
+
+/* add flags field */
+		p[0] = flags;
+                p++;
+
 		memcpy(p,PEER_TYPE,peer_type_len);
+                p += peer_type_len;
 	}
 
-	msg_len = p - msg;
+	msg_len = (p - msg);
 
 	/* Octet 6 and 7 are the signal length, minus the length of the header */
-	write_uint16(msg_len - 4,msg + 6);
+	/*write_uint16(msg_len - 4,msg + 6); */
+	write_uint16(msg_len - 8,msg + 6);
 
 	printf("Sending Peer Discovery signal to %s\n",formatAddress(address,str_address,sizeof(str_address)));
 
@@ -147,6 +158,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 
 		case DLEP_IPV4_CONN_POINT_DATA_ITEM:
 			modem_address->ss_family = AF_INET;
+data_item += 4;
 			memcpy(&((struct sockaddr_in*)modem_address)->sin_addr,data_item + 1,4);
 			*modem_address_length = sizeof(struct sockaddr_in);
 			printf("  IPv4 address: (%s TLS) %s\n",(data_item[0] ? "Use" : "No"),inet_ntop(AF_INET,data_item + 1,peer_address,sizeof(peer_address)));
@@ -156,7 +168,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
 			break;
-
+#if 0
 		case DLEP_IPV6_CONN_POINT_DATA_ITEM:
 			modem_address->ss_family = AF_INET6;
 			memcpy(&((struct sockaddr_in6*)modem_address)->sin6_addr,data_item + 1,16);
@@ -168,7 +180,7 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 				port = DLEP_WELL_KNOWN_TCP_PORT;
 			((struct sockaddr_in*)modem_address)->sin_port = htons(port);
 			break;
-
+#endif
 		default:
 			break;
 		}
@@ -194,10 +206,30 @@ static int get_peer_offer(int s, const struct sockaddr* dest_addr, socklen_t des
 	/* Set the port on the selected modem address */
 	if (modem_address->ss_family == AF_INET)
 		((struct sockaddr_in*)modem_address)->sin_port = htons(port);
+#if 0
 	else
 		((struct sockaddr_in6*)modem_address)->sin6_port = htons(port);
+#endif
 
 	return 1;
+}
+
+uint32_t get_host_ip_by_interface(const char *interface)
+{
+	uint32_t nodeIp;
+	int fd;
+	struct ifreq ifr;
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, interface, IFNAMSIZ-1);
+	ioctl(fd, SIOCGIFADDR, &ifr);
+
+	close(fd);
+
+	nodeIp = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
+	return nodeIp;
 }
 
 static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
@@ -208,7 +240,7 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_
 	struct sockaddr_in local_address = {0};
 	local_address.sin_family = AF_INET;
 	local_address.sin_port = 0;
-	local_address.sin_addr.s_addr = INADDR_ANY;
+	local_address.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if (bind(s,(struct sockaddr*)&local_address,sizeof(local_address)) != 0)
 	{
@@ -216,68 +248,34 @@ static int discover_ipv4(int s, struct sockaddr_storage* modem_address, socklen_
 	}
 	else
 	{
-		/* Set multicast loopback socket options so we can run the router
-		 * process and the modem process on the same machine */
-		int on = 1;
-		if (setsockopt(s,IPPROTO_IP,IP_MULTICAST_LOOP,&on,sizeof(on)) != 0)
-		{
-			printf("Failed to set multicast loopback option: %s\n",strerror(errno));
-		}
-		else
-		{
-			struct sockaddr_in discovery_address = {0};
-			discovery_address.sin_family = AF_INET;
-			discovery_address.sin_port = htons(DLEP_WELL_KNOWN_MULTICAST_PORT);
-			inet_pton(AF_INET,DLEP_WELL_KNOWN_MULTICAST_ADDRESS,&discovery_address.sin_addr);
-
-			/* Do the discovery */
-			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
-				ret = 1;
-		}
-	}
-
-	return ret;
-}
-
-static int discover_ipv6(int s, const char* iface, struct sockaddr_storage* modem_address, socklen_t* modem_address_length, uint16_t* heartbeat_interval)
-{
-	int ret = 0;
-
-	/* Bind the socket to a system assigned local address */
-	struct sockaddr_in6 local_address = {0};
-	local_address.sin6_family = AF_INET6;
-	local_address.sin6_port = 0;
-	local_address.sin6_addr = in6addr_any;
-
-	if (bind(s,(struct sockaddr*)&local_address,sizeof(local_address)) != 0)
-	{
-		printf("Failed to bind socket: %s\n",strerror(errno));
-	}
-	else
-	{
-		/* Set multicast loopback socket options so we can run the router
-		 * process and the modem process on the same machine */
-		int on = 1;
-		if (setsockopt(s,IPPROTO_IPV6,IPV6_MULTICAST_LOOP,&on,sizeof(on)) != 0)
-		{
-			printf("Failed to set multicast loopback option: %s\n",strerror(errno));
-		}
-		else
-		{
-			struct sockaddr_in6 discovery_address = {0};
-			discovery_address.sin6_family = AF_INET6;
-			discovery_address.sin6_port = htons(DLEP_WELL_KNOWN_MULTICAST_PORT);
-			inet_pton(AF_INET6,DLEP_WELL_KNOWN_MULTICAST_ADDRESS_6,&discovery_address.sin6_addr);
-			if (iface)
-				discovery_address.sin6_scope_id = if_nametoindex(iface);
-
-			/* Do the discovery */
-			if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
+  		struct in_addr intf;
+  		intf.s_addr = get_host_ip_by_interface("eth0");
+  		if (setsockopt(s,IPPROTO_IP,IP_MULTICAST_IF,&intf,sizeof(intf)) < 0)
+  		{       
+    			printf("Can't attach to Interface eth0\n");
+    			return -1;
+  		}
+  		else
+  		{
+			/* Set multicast loopback socket options so we can run the router
+		 	* process and the modem process on the same machine */
+			int on = 1;
+			if (setsockopt(s,IPPROTO_IP,IP_MULTICAST_LOOP,&on,sizeof(on)) != 0)
 			{
-				((struct sockaddr_in6*)modem_address)->sin6_scope_id = discovery_address.sin6_scope_id;
-				ret = 1;
+				printf("Failed to set multicast loopback option: %s\n",strerror(errno));
 			}
-		}
+			else
+			{
+				struct sockaddr_in discovery_address = {0};
+				discovery_address.sin_family = AF_INET;
+				discovery_address.sin_port = htons(DLEP_WELL_KNOWN_MULTICAST_PORT);
+				inet_pton(AF_INET,DLEP_WELL_KNOWN_MULTICAST_ADDRESS,&discovery_address.sin_addr);
+		
+				/* Do the discovery */
+				if (get_peer_offer(s,(struct sockaddr*)&discovery_address,sizeof(discovery_address),modem_address,modem_address_length,heartbeat_interval))
+					ret = 1;
+			}
+   		}
 	}
 
 	return ret;
@@ -288,7 +286,8 @@ int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ 
 	int ret = 0;
 
 	/* Create a UDP socket */
-	int s = socket(use_ipv6 ? AF_INET6 : AF_INET,SOCK_DGRAM,0);
+/*	int s = socket(use_ipv6 ? AF_INET6 : AF_INET,SOCK_DGRAM,0); */
+        int s = socket(AF_INET,SOCK_DGRAM,0);
 	if (s == -1)
 	{
 		printf("Failed to create socket: %s\n",strerror(errno));
@@ -302,18 +301,22 @@ int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ 
 			/* Bind the socket to the specified interface */
 			if (geteuid() != 0)
 				printf("Not binding multicast discovery discovery to interface %s as not root\n",iface);
+#if 0
 			else if (setsockopt(s,SOL_SOCKET,SO_BINDTODEVICE, iface, strlen(iface)+1) != 0)
 			{
 				printf("Failed to bind socket to interface %s: %s\n",iface,strerror(errno));
 				ret = 0;
 			}
+#endif
 		}
 
 		if (ret)
 		{
+#if 0
 			if (use_ipv6)
 				ret = discover_ipv6(s,iface,modem_address,modem_address_length,heartbeat_interval);
 			else
+#endif
 				ret = discover_ipv4(s,modem_address,modem_address_length,heartbeat_interval);
 		}
 
