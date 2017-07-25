@@ -18,6 +18,6 @@ AC_CANONICAL_HOST
 AC_PROG_CC
 
 # Turn on all warnings and errors
-CFLAGS="$CFLAGS -pedantic -std=c89"
+CFLAGS="$CFLAGS -pedantic -std=c89 -Wall"
 
 AC_OUTPUT

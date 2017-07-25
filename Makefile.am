@@ -1,6 +1,4 @@
 
-ACLOCAL_AMFLAGS = -I m4
-
 bin_PROGRAMS = dlep_router
 
 dlep_router_SOURCES = \
@@ -13,5 +11,4 @@ dlep_router_SOURCES = \
 	src/util.h \
 	src/util.c
 		
-#dlep_router_LDADD = 
-dlep_router_LDFLAGS = -pthread
+#dlep_router_LDFLAGS = -pthread
