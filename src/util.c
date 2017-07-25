@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2014 Airbus DS Limited
+Copyright (c) 2017 Airbus DS Limited
 
 */
 
@@ -66,7 +66,6 @@ const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len
 {
 	const char* ret = NULL;
 	char address[INET6_ADDRSTRLEN] = {0};
-	//size_t len = 0;
 	in_port_t port = 0;
 
 	if (addr->sa_family == AF_INET)
@@ -74,13 +73,11 @@ const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len
 		port = ntohs(((struct sockaddr_in*)addr)->sin_port);
 		ret = inet_ntop(AF_INET,&((struct sockaddr_in*)addr)->sin_addr,address,sizeof(address));
 	}
-#if 0
 	else if (addr->sa_family == AF_INET6)
 	{
 		port = ntohs(((struct sockaddr_in6*)addr)->sin6_port);
 		ret = inet_ntop(AF_INET6,&((struct sockaddr_in6*)addr)->sin6_addr,address,sizeof(address));
 	}
-#endif
 	else
 		errno = EINVAL;
 
@@ -90,18 +87,10 @@ const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len
 	if (addr->sa_family == AF_INET)
 		snprintf(str,str_len-1,"%s:%u",address,port);
 	else
-		snprintf(str,str_len-1,"{%s}:%u",address,port);
+		snprintf(str,str_len-1,"[%s]:%u",address,port);
 
 	str[str_len-1] = '\0';
 	return str;
-}
-
-void printfBytes(const uint8_t* p, size_t len, char sep)
-{
-	while (len--)
-	{
-		printf("%2X%c",*p++,sep);
-	}
 }
 
 int interval_compare(const struct timespec* start, const struct timespec* end, unsigned int interval)

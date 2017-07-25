@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2014 Airbus DS Limited
+Copyright (c) 2017 Airbus DS Limited
 
 */
 
@@ -27,8 +27,6 @@ uint64_t read_uint64(const uint8_t* p);
 
 #define FORMATADDRESS_LEN INET6_ADDRSTRLEN+6
 const char* formatAddress(const struct sockaddr* addr, char* str, size_t str_len);
-
-void printfBytes(const uint8_t* p, size_t len, char sep);
 
 int interval_compare(const struct timespec* start, const struct timespec* end, unsigned int interval);
 

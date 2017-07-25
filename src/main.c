@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2014 Airbus DS Limited
+Copyright (c) 2017 Airbus DS Limited
 
 */
 
@@ -19,23 +19,21 @@ Copyright (c) 2014 Airbus DS Limited
 #include "./dlep_iana.h"
 
 /* Defined in discovery.c */
-int discover(/* [in] */ int use_ipv6, /* [in] */ const char* iface, /* [out] */ struct sockaddr_storage* modem_address, /* [out] */ socklen_t* modem_address_length, /* [out] */ uint32_t* heartbeat_interval);
+int discover(int use_ipv6, const char* iface, struct sockaddr_storage* modem_address, socklen_t* modem_address_length);
 
 /* Defined in session.c */
-int session(/* [in] */ const struct sockaddr* modem_address, /* [int] */ socklen_t modem_address_length, /* [int] */ uint32_t modem_heartbeat_interval, /* [int] */ uint32_t router_heartbeat_interval);
+int session(const struct sockaddr* modem_address, socklen_t modem_address_length, uint32_t router_heartbeat_interval);
 
 static void help()
 {
     printf(
 	"dlep_router - A logging DLEP router\n"
-        "  Version 0.1.1\n"
-        "  Copyright (c) 2014 Airbus DS Limited\n\n"
+        "  Version 0.1.2\n"
+        "  Copyright (c) 2017 Airbus DS Limited\n\n"
 
         "Usage: dlep_router [options] [modem IP address [port]]\n"
         "Options:\n"
-#if 0
         "  -6 or --ipv6          Use IPv6 (default is IPv4)\n"
-#endif
         "  -I or --interface <I> Bind the discovery to interface I, requires root\n"
         "  -H or --heartbeat <N> Use Heartbeat Interval N (default is 0)\n"
         "  -h or --help          Show this text\n");
@@ -48,9 +46,7 @@ int main(int argc, char* argv[])
 		{ "heartbeat",1,NULL,'H' },
 		{ "interface",1,NULL,'I' },
 		{ "help",0,NULL,'h' },
-#if 0
 		{ "ipv6",0,NULL,'6' },
-#endif
 		{ 0 }
 	};
 
@@ -59,8 +55,7 @@ int main(int argc, char* argv[])
 	int use_ipv6 = 0;
 	struct sockaddr_storage address = {0};
 	socklen_t address_length = 0;
-	/*uint16_t router_heartbeat_interval = 0; */
-	uint32_t router_heartbeat_interval = 15;
+	uint32_t router_heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
 	const char* iface = NULL;
 
 	/* Disable getopt's error messages */
@@ -74,11 +69,11 @@ int main(int argc, char* argv[])
 		case 'I':
 			iface = optarg;
 			break;
-#if 0
+
 		case '6':
 			use_ipv6 = 1;
 			break;
-#endif
+
 		case 'H':
 			router_heartbeat_interval = strtoul(optarg,NULL,10);
 			break;
@@ -113,10 +108,10 @@ int main(int argc, char* argv[])
 	if (optind < argc)
 	{
 		/* The modem address is on the command line
-		 * This is section 7.1 in the draft */
+		 * This is section 7 in RFC 8175, jumping to 7.2 */
 
 		char address_buffer[16] = {0};
-		in_port_t port = DLEP_WELL_KNOWN_MULTICAST_PORT;
+		in_port_t port = DLEP_WELL_KNOWN_PORT;
 
 		if (optind + 1 < argc)
 		{
@@ -130,7 +125,6 @@ int main(int argc, char* argv[])
 		}
 
 		/* Try to parse */
-#if 0
 		if (use_ipv6 || inet_pton(AF_INET6,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in6*)&address)->sin6_family = AF_INET6;
@@ -152,7 +146,7 @@ int main(int argc, char* argv[])
 
 			use_ipv6 = 1;
 		}
-#endif
+
 		if (!use_ipv6 || inet_pton(AF_INET,argv[optind],&address_buffer))
 		{
 			((struct sockaddr_in*)&address)->sin_family = AF_INET;
@@ -173,23 +167,22 @@ int main(int argc, char* argv[])
 	srand(time(NULL) ^ getpid());
 
 	printf(	"dlep_router - A logging DLEP router\n"
-	        "  Version 0.1.1\n"
-	        "  Copyright (c) 2014 Airbus DS Limited\n\n");
+	        "  Version 0.1.2\n"
+	        "  Copyright (c) 2017 Airbus DS Limited\n\n");
 
 	/* Loop forever */
 	for (;;)
 	{
-		uint32_t modem_heartbeat_interval = DEFAULT_HEARTBEAT_INTERVAL;
-
 		if (optind == argc)
 		{
 			/* If no address was supplied on the command line, perform discovery
-			 * This is section 7.2 in the draft */
-			if (!discover(use_ipv6,iface,&address,&address_length,&modem_heartbeat_interval))
+			 * This is section 7.1 in RFC 8175 */
+
+			if (!discover(use_ipv6,iface,&address,&address_length))
 				return EXIT_FAILURE;
 		}
 
-		if (session((const struct sockaddr*)&address,address_length,modem_heartbeat_interval,router_heartbeat_interval) != 0)
+		if (session((const struct sockaddr*)&address,address_length,router_heartbeat_interval) != 0)
 			return EXIT_FAILURE;
 	}
 
