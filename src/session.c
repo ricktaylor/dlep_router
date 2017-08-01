@@ -168,7 +168,8 @@ static int term_session(int s, uint8_t** msg, uint32_t modem_heartbeat_interval)
 	last_recv_time = now_time;
 
 	/* Make sure we check heartbeats promptly - this is a bit hackish */
-	timeout.tv_sec = modem_heartbeat_interval;
+	timeout.tv_sec = modem_heartbeat_interval / 1000;
+	timeout.tv_usec = (modem_heartbeat_interval % 1000) * 1000;
 
 	/* Loop forever handling messages */
 	for (;;)
@@ -449,8 +450,8 @@ static enum dlep_status_code parse_session_init_resp_message(const uint8_t* data
 		switch (item_id)
 		{
 		case DLEP_HEARTBEAT_INTERVAL_DATA_ITEM:
-			*heartbeat_interval = read_uint16(data_item);
-			printf("  Heartbeat Interval: %u\n",*heartbeat_interval);
+			*heartbeat_interval = read_uint32(data_item);
+			printf("  Heartbeat Interval: %ums\n",*heartbeat_interval);
 			break;
 
 		case DLEP_PEER_TYPE_DATA_ITEM:
@@ -940,6 +941,8 @@ static int in_session(int s, uint8_t** msg, uint32_t modem_heartbeat_interval, u
 
 	/* Make sure we send and check heartbeats promptly - this is a bit hackish */
 	timeout.tv_sec = (modem_heartbeat_interval < router_heartbeat_interval ? modem_heartbeat_interval : router_heartbeat_interval);
+	timeout.tv_usec = (timeout.tv_sec % 1000) * 1000;
+	timeout.tv_sec /= 1000;
 
 	/* Loop forever handling messages */
 	for (;;)
@@ -1045,7 +1048,7 @@ int session(const struct sockaddr* modem_address, socklen_t modem_address_length
 			/* Check it's a valid Session Initialization Response message */
 			if (check_session_init_resp_message(msg,received) == DLEP_SC_SUCCESS)
 			{
-				uint32_t modem_heartbeat_interval;
+				uint32_t modem_heartbeat_interval = 60000;
 				enum dlep_status_code init_sc = DLEP_SC_SUCCESS;
 
 				enum dlep_status_code sc = parse_session_init_resp_message(msg+4,received-4,&modem_heartbeat_interval,&init_sc);

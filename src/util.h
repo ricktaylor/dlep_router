@@ -9,6 +9,7 @@ Copyright (c) 2017 Airbus DS Limited
 
 #define _GNU_SOURCE
 
+#include <time.h>
 #include <sys/time.h>
 #include <stdint.h>
 #include <arpa/inet.h>

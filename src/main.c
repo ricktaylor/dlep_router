@@ -76,6 +76,7 @@ int main(int argc, char* argv[])
 
 		case 'H':
 			router_heartbeat_interval = strtoul(optarg,NULL,10);
+			router_heartbeat_interval *= 1000;
 			break;
 
 		case 'h':
