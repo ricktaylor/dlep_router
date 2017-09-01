@@ -6,8 +6,6 @@ Copyright (c) 2017 Airbus DS Limited
 
 #include "./util.h"
 
-#include <time.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

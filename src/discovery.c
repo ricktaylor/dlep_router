@@ -4,19 +4,19 @@ Copyright (c) 2017 Airbus DS Limited
 
 */
 
+#include "./util.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <net/if.h>
 
 #include "./dlep_iana.h"
 #include "./check.h"
-#include "./util.h"
 
 static int send_peer_discovery_signal(int s, const struct sockaddr* address, socklen_t address_len)
 {

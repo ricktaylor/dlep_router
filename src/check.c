@@ -4,14 +4,13 @@ Copyright (c) 2017 Airbus DS Limited
 
 */
 
+#include "./util.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-#include <arpa/inet.h>
-
 #include "./dlep_iana.h"
-#include "./util.h"
 
 static enum dlep_status_code check_length(uint16_t item_len, unsigned int expected_len, const char* name)
 {

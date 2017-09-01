@@ -4,6 +4,8 @@ Copyright (c) 2017 Airbus DS Limited
 
 */
 
+#include "./util.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,8 +14,6 @@ Copyright (c) 2017 Airbus DS Limited
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <time.h>
 #include <net/if.h>
 
 #include "./dlep_iana.h"
